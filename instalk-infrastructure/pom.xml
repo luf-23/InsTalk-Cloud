@@ -27,12 +27,6 @@
             <version>1.0.0</version>
         </dependency>
 
-        <!-- Spring Boot Starter Web - 提供Spring基础支持 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-
         <!-- Redis - 缓存 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

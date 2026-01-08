@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.instalk.cloud</groupId>
+        <artifactId>instalk-cloud</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>instalk-gateway</artifactId>
+    <name>instalk-gateway</name>
+    <description>网关模块 - 统一入口</description>
+
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!--gateway网关-->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-gateway</artifactId>
+        </dependency>
+        <!-- Nacos服务注册发现 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <!--负载均衡，不加的话gateway配置uri不能使用服务名而只能用固定ip-->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
+        <!-- Common模块 -->
+        <dependency>
+            <groupId>org.instalk.cloud</groupId>
+            <artifactId>instalk-common</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <!-- Infrastructure模块 -->
+        <dependency>
+            <groupId>org.instalk.cloud</groupId>
+            <artifactId>instalk-infrastructure</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+    </dependencies>
+
+</project>

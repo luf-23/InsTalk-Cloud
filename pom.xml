@@ -27,6 +27,7 @@
         <module>instalk-auth-service</module>
         <module>instalk-user-service</module>
         <module>instalk-infrastructure</module>
+        <module>instalk-gateway</module>
     </modules>
 
     <!-- 统一属性管理 -->
@@ -125,6 +126,7 @@
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-starter-openfeign</artifactId>
+                <version> 4.1.4</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
