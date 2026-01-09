@@ -2,66 +2,61 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    
+
     <!-- 继承父工程 -->
     <parent>
         <groupId>org.instalk.cloud</groupId>
         <artifactId>instalk-cloud</artifactId>
         <version>1.0.0</version>
     </parent>
-    
-    <artifactId>instalk-auth-service</artifactId>
-    <name>instalk-auth-service</name>
-    <description>认证授权服务</description>
-    
+
+    <artifactId>instalk-aiconfig-service</artifactId>
+    <name>instalk-aiconfig-service</name>
+    <description>ai配置服务</description>
+
+
     <dependencies>
         <!-- Spring Boot Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        
+
         <!-- MyBatis -->
         <dependency>
             <groupId>org.mybatis.spring.boot</groupId>
             <artifactId>mybatis-spring-boot-starter</artifactId>
         </dependency>
-        
+
         <!-- MySQL -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
         </dependency>
-        
+
         <!-- Common模块 -->
         <dependency>
             <groupId>org.instalk.cloud</groupId>
             <artifactId>instalk-common</artifactId>
             <version>1.0.0</version>
         </dependency>
-        
+
         <!-- Nacos服务注册发现 -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
-        
+
         <!-- Nacos配置中心 -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
         </dependency>
-        
+
         <!-- Spring Cloud 负载均衡 -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-        </dependency>
-
-        <!-- OpenFeign -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
 
         <!-- Spring Boot Test -->
@@ -69,14 +64,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
-        </dependency>
-
-
-        <!-- Infrastructure模块 -->
-        <dependency>
-            <groupId>org.instalk.cloud</groupId>
-            <artifactId>instalk-infrastructure</artifactId>
-            <version>1.0.0</version>
         </dependency>
     </dependencies>
 

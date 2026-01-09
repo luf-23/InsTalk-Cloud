@@ -2,7 +2,7 @@ package org.instalk.cloud.instalkuserservice.controller;
 
 import org.instalk.cloud.common.feign.api.UserAPI;
 import org.instalk.cloud.common.model.po.User;
-import org.instalk.cloud.instalkuserservice.service.InternalService;
+import org.instalk.cloud.instalkuserservice.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,17 +12,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class InternalController implements UserAPI {
 
     @Autowired
-    private InternalService internalService;
+    private UserService userService;
 
     @Override
     public User getUserByEmail(String email) {
         if (email== null) return null;
-        return internalService.getUserByEmail(email);
+        return userService.getUserByEmail(email);
     }
 
     @Override
     public User getUserByUsername(String username) {
         if (username== null) return null;
-        return internalService.getUserByUsername(username);
+        return userService.getUserByUsername(username);
     }
 }

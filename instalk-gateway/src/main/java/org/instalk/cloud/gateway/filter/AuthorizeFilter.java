@@ -4,9 +4,12 @@ import org.instalk.cloud.common.util.JwtUtil;
 import org.instalk.cloud.common.util.ThreadLocalUtil;
 import org.instalk.cloud.common.util.TokenUtil;
 import org.instalk.cloud.gateway.config.AuthWhiteListProperties;
+import org.instalk.cloud.infrastructure.redis.RedisUtilImpl;
+import org.instalk.cloud.infrastructure.redis.TokenUtilImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -18,6 +21,7 @@ import java.util.Map;
 
 @Component
 //@Order(-1)
+@ComponentScan(basePackageClasses = {TokenUtilImpl.class, RedisUtilImpl.class})
 public class AuthorizeFilter implements GlobalFilter, Ordered {
 
     @Autowired
