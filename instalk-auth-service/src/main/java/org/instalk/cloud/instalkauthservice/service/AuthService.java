@@ -101,10 +101,10 @@ public class AuthService {
         robot.setRole("ROBOT");
         robot.setPassword(user.getPassword());
         userFeignClient.addRobot(robot);
-        aiConfigFeignClient.add(user.getId(),robot.getId());
+        aiConfigFeignClient.add(user.getId(), robot.getId());
         Long minId = Long.min(user.getId(),robot.getId());
         Long maxId = Long.max(user.getId(),robot.getId());
-        friendshipFeignClient.makeFriendsWithRobot(minId,maxId);
+        friendshipFeignClient.makeFriendsWithRobot(minId, maxId);
 
         return Result.success();
     }
