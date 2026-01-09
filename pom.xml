@@ -26,6 +26,7 @@
         <module>instalk-common</module>
         <module>instalk-auth-service</module>
         <module>instalk-user-service</module>
+        <module>instalk-friendship-service</module>
         <module>instalk-infrastructure</module>
         <module>instalk-gateway</module>
     </modules>

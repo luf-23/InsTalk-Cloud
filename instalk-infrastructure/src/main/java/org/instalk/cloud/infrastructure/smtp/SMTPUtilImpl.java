@@ -1,18 +1,15 @@
 package org.instalk.cloud.infrastructure.smtp;
-import org.instalk.cloud.infrastructure.redis.RedisUtilImpl;
+
+import org.instalk.cloud.common.util.SMTPUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
-import java.util.Random;
-import java.util.concurrent.TimeUnit;
-
-import static org.instalk.cloud.common.util.StringUtil.generateCaptcha;
 
 @Component
-public class SMTPUtil {
+public class SMTPUtilImpl implements SMTPUtil {
 
     @Autowired
     private JavaMailSender mailSender;
