@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserService {
 
+    @Autowired
     private UserMapper userMapper;
 
     public User getUserByEmail(String email) {
@@ -16,5 +17,13 @@ public class UserService {
 
     public User getUserByUsername(String username) {
         return userMapper.selectByUsername(username);
+    }
+
+    public void add(User user) {
+        userMapper.add(user);
+    }
+
+    public void addRobot(User robot) {
+        userMapper.addRobot(robot);
     }
 }

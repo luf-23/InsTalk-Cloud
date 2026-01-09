@@ -24,11 +24,12 @@
     <!-- 模块声明 -->
     <modules>
         <module>instalk-common</module>
+        <module>instalk-infrastructure</module>
+        <module>instalk-gateway</module>
         <module>instalk-auth-service</module>
         <module>instalk-user-service</module>
         <module>instalk-friendship-service</module>
-        <module>instalk-infrastructure</module>
-        <module>instalk-gateway</module>
+        <module>instalk-aiconfig-service</module>
     </modules>
 
     <!-- 统一属性管理 -->
