@@ -21,18 +21,6 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         
-        <!-- MyBatis -->
-        <dependency>
-            <groupId>org.mybatis.spring.boot</groupId>
-            <artifactId>mybatis-spring-boot-starter</artifactId>
-        </dependency>
-        
-        <!-- MySQL -->
-        <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
-        </dependency>
-        
         <!-- Common模块 -->
         <dependency>
             <groupId>org.instalk.cloud</groupId>

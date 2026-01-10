@@ -29,12 +29,12 @@ public class InternalController implements UserAPI {
     }
 
     @Override
-    public void add(@RequestBody User user) {
-        userService.add(user);
+    public User add(@RequestBody User user) {
+        return userService.add(user);
     }
 
     @Override
-    public void addRobot(@RequestBody User robot) {
-        userService.addRobot( robot);
+    public User addRobot(@RequestBody User robot) {
+        return userService.addRobot(robot);
     }
 }
