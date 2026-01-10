@@ -19,11 +19,13 @@ public class UserService {
         return userMapper.selectByUsername(username);
     }
 
-    public void add(User user) {
+    public User add(User user) {
         userMapper.add(user);
+        return user;
     }
 
-    public void addRobot(User robot) {
+    public User addRobot(User robot) {
         userMapper.addRobot(robot);
+        return robot;
     }
 }

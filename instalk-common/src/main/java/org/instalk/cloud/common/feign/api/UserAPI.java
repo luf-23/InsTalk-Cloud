@@ -15,8 +15,8 @@ public interface UserAPI {
     User getUserByUsername(@RequestParam("username") String username);
 
     @PostMapping("/add/user")
-    void add(@RequestBody User user);
+    User add(@RequestBody User user);
 
-    @PostMapping("/add/robot")
-    void addRobot(@RequestBody User robot);
+    @PostMapping("/addRobot")
+    User addRobot(@RequestBody User robot);
 }

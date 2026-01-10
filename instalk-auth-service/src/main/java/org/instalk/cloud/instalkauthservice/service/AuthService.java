@@ -6,6 +6,8 @@ import org.instalk.cloud.common.feign.client.AiConfigFeignClient;
 import org.instalk.cloud.common.feign.client.UserFeignClient;
 import org.instalk.cloud.common.model.dto.LoginDTO;
 import org.instalk.cloud.common.model.dto.RegisterDTO;
+import org.instalk.cloud.common.model.dto.internal.AiConfigDTO;
+import org.instalk.cloud.common.model.dto.internal.MakeFriendsDTO;
 import org.instalk.cloud.common.model.po.User;
 import org.instalk.cloud.common.model.vo.LoginVO;
 import org.instalk.cloud.common.model.vo.RefreshVO;
@@ -91,7 +93,7 @@ public class AuthService {
         if (userFeignClient.getUserByEmail(registerDTO.getEmail()) != null) return Result.error("邮箱已存在");
         if (!captchaUtil.verifyCaptcha(registerDTO.getEmail(),registerDTO.getCaptcha())) return Result.error("验证码错误");
         User user = new User(registerDTO.getUsername(),registerDTO.getEmail(),registerDTO.getPassword());
-        userFeignClient.add(user);
+        user = userFeignClient.add(user);
         // 添加机器人
         User robot = new User();
         robot.setSignature(String.format("我是%s的ai助手",user.getUsername()));
@@ -100,12 +102,12 @@ public class AuthService {
         robot.setAvatar("https://luf-23.oss-cn-wuhan-lr.aliyuncs.com/ins_talk/ai.png");
         robot.setRole("ROBOT");
         robot.setPassword(user.getPassword());
-        userFeignClient.addRobot(robot);
-        aiConfigFeignClient.add(user.getId(), robot.getId());
+        robot = userFeignClient.addRobot(robot);
+        aiConfigFeignClient.add(new AiConfigDTO(user.getId(), robot.getId()));
+        System.out.println("aiconfig调用后");
         Long minId = Long.min(user.getId(),robot.getId());
         Long maxId = Long.max(user.getId(),robot.getId());
-        friendshipFeignClient.makeFriendsWithRobot(minId, maxId);
-
+        friendshipFeignClient.makeFriendsWithRobot(new MakeFriendsDTO(minId,maxId));
         return Result.success();
     }
 
