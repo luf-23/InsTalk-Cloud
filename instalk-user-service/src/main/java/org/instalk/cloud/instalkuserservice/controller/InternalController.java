@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/internal/user")
 public class InternalController implements UserAPI {
@@ -29,6 +31,16 @@ public class InternalController implements UserAPI {
     }
 
     @Override
+    public User getUserById(@RequestParam Long id) {
+        return userService.getUserById(id);
+    }
+
+    @Override
+    public List<User> getUsersByIds(@RequestBody List<Long> ids) {
+        return userService.getUsersByIds(ids);
+    }
+
+    @Override
     public User add(@RequestBody User user) {
         return userService.add(user);
     }
@@ -36,5 +48,10 @@ public class InternalController implements UserAPI {
     @Override
     public User addRobot(@RequestBody User robot) {
         return userService.addRobot(robot);
+    }
+
+    @Override
+    public List<User> getUserByNameLike(@RequestParam String username) {
+        return userService.getUserByNameLike(username);
     }
 }

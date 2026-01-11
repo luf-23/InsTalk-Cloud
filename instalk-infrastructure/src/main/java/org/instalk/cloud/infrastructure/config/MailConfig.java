@@ -11,25 +11,25 @@ import java.util.Properties;
 @Configuration
 public class MailConfig {
 
-    @Value("${spring.mail.host:smtp.qq.com}")
+    @Value("${spring.mail.host}")
     private String host;
 
-    @Value("${spring.mail.port:587}")
+    @Value("${spring.mail.port}")
     private Integer port;
 
-    @Value("${spring.mail.username:3162794813@qq.com}")
+    @Value("${spring.mail.username}")
     private String username;
 
-    @Value("${spring.mail.password:hcsibxvpnsgzdhfg}")
+    @Value("${spring.mail.password}")
     private String password;
 
-    @Value("${spring.mail.properties.mail.smtp.auth:true}")
+    @Value("${spring.mail.properties.mail.smtp.auth}")
     private Boolean smtpAuth;
 
-    @Value("${spring.mail.properties.mail.smtp.starttls.enable:true}")
+    @Value("${spring.mail.properties.mail.smtp.starttls.enable}")
     private Boolean starttlsEnable;
 
-    @Value("${spring.mail.properties.mail.smtp.starttls.required:true}")
+    @Value("${spring.mail.properties.mail.smtp.starttls.required}")
     private Boolean starttlsRequired;
 
     @Bean

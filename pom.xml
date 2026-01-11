@@ -25,11 +25,13 @@
     <modules>
         <module>instalk-common</module>
         <module>instalk-infrastructure</module>
-        <module>instalk-gateway</module>
-        <module>instalk-auth-service</module>
-        <module>instalk-user-service</module>
-        <module>instalk-friendship-service</module>
-        <module>instalk-aiconfig-service</module>
+        <module>instalk-gateway</module> <!--10010-->
+        <module>instalk-auth-service</module> <!--8081-->
+        <module>instalk-user-service</module> <!--8082-->
+        <module>instalk-friendship-service</module> <!--8083-->
+        <module>instalk-aiconfig-service</module> <!--8084-->
+        <module>instalk-message-service</module> <!--8085-->
+        <module>instalk-websocket-service</module> <!--8086-->
     </modules>
 
     <!-- 统一属性管理 -->
