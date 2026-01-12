@@ -1,4 +1,4 @@
-package org.instalk.cloud.instalkmessageservice;
+package org.instalk.cloud.instalkgroupservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -6,10 +6,10 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication
 @EnableFeignClients(basePackages = "org.instalk.cloud.common.feign.client")
-public class InstalkMessageServiceApplication {
+public class InstalkGroupServiceApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(InstalkMessageServiceApplication.class, args);
+        SpringApplication.run(InstalkGroupServiceApplication.class, args);
     }
 
 }

@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class WebSocketDeleteFriendDTO {
-    private Long id;
-    private Long myId;
+public class GetGroupMemberDTO {
+    private Long senderId;
+    private Long groupId;
 }
