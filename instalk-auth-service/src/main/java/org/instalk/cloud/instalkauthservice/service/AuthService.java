@@ -7,7 +7,7 @@ import org.instalk.cloud.common.feign.client.UserFeignClient;
 import org.instalk.cloud.common.model.dto.LoginDTO;
 import org.instalk.cloud.common.model.dto.RegisterDTO;
 import org.instalk.cloud.common.model.dto.internal.AiConfigDTO;
-import org.instalk.cloud.common.model.dto.internal.MakeFriendsDTO;
+import org.instalk.cloud.common.model.dto.internal.FriendshipDTO;
 import org.instalk.cloud.common.model.po.User;
 import org.instalk.cloud.common.model.vo.LoginVO;
 import org.instalk.cloud.common.model.vo.RefreshVO;
@@ -107,7 +107,7 @@ public class AuthService {
         System.out.println("aiconfig调用后");
         Long minId = Long.min(user.getId(),robot.getId());
         Long maxId = Long.max(user.getId(),robot.getId());
-        friendshipFeignClient.makeFriendsWithRobot(new MakeFriendsDTO(minId,maxId));
+        friendshipFeignClient.makeFriendsWithRobot(new FriendshipDTO(minId,maxId));
         return Result.success();
     }
 

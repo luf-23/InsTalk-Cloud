@@ -4,7 +4,7 @@ import org.instalk.cloud.common.feign.client.MessageFeignClient;
 import org.instalk.cloud.common.feign.client.UserFeignClient;
 import org.instalk.cloud.common.feign.client.WebSocketFeignClient;
 import org.instalk.cloud.common.model.dto.internal.DeleteMessageDTO;
-import org.instalk.cloud.common.model.dto.internal.WebSocketDeleteFriendDTO;
+import org.instalk.cloud.common.model.dto.internal.WsDeleteFriendDTO;
 import org.instalk.cloud.common.model.po.Friendship;
 import org.instalk.cloud.common.model.po.User;
 import org.instalk.cloud.common.model.vo.FriendVO;
@@ -102,7 +102,7 @@ public class FriendshipService {
 
 
         // 通过 WebSocket 通知对方好友已被删除
-        webSocketFeignClient.sendFriendDeletedNotification(new WebSocketDeleteFriendDTO(id,myId));
+        webSocketFeignClient.sendFriendDeletedNotification(new WsDeleteFriendDTO(id,myId));
 
         return  Result.success();
     }
@@ -151,5 +151,9 @@ public class FriendshipService {
             return friendVO;
         }).filter(friendVO -> !friendVO.getId().equals(ThreadLocalUtil.getId())).toList();
         return Result.success(friendVOS);
+    }
+
+    public Friendship getByUserId1AndUserId2(Long minId, Long maxId) {
+        return friendshipMapper.selectByUserId1AndUserId2(minId,maxId);
     }
 }
