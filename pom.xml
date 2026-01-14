@@ -29,10 +29,11 @@
         <module>instalk-auth-service</module> <!--8081-->
         <module>instalk-user-service</module> <!--8082-->
         <module>instalk-friendship-service</module> <!--8083-->
-        <module>instalk-aiconfig-service</module> <!--8084-->
+        <module>instalk-ai-service</module> <!--8084-->
         <module>instalk-message-service</module> <!--8085-->
         <module>instalk-websocket-service</module> <!--8086-->
         <module>instalk-group-service</module> <!--8087-->
+        <module>instalk-oss-service</module> <!--8088-->
     </modules>
 
     <!-- 统一属性管理 -->

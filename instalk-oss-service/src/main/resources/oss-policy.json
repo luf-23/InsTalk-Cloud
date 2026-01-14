@@ -1,0 +1,15 @@
+{
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "oss:PutObject",
+        "oss:GetObject"
+      ],
+      "Resource": [
+        "acs:oss:*:*:luf-23/ins_talk/*"
+      ]
+    }
+  ],
+  "Version": "1"
+}

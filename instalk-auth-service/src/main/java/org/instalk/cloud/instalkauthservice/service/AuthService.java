@@ -2,7 +2,7 @@ package org.instalk.cloud.instalkauthservice.service;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.instalk.cloud.common.feign.client.FriendshipFeignClient;
-import org.instalk.cloud.common.feign.client.AiConfigFeignClient;
+import org.instalk.cloud.common.feign.client.AiFeignClient;
 import org.instalk.cloud.common.feign.client.UserFeignClient;
 import org.instalk.cloud.common.model.dto.LoginDTO;
 import org.instalk.cloud.common.model.dto.RegisterDTO;
@@ -31,7 +31,7 @@ public class AuthService {
     private UserFeignClient userFeignClient;
 
     @Autowired
-    private AiConfigFeignClient aiConfigFeignClient;
+    private AiFeignClient aiConfigFeignClient;
 
     @Autowired
     private FriendshipFeignClient friendshipFeignClient;
