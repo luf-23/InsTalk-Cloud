@@ -1,6 +1,7 @@
 package org.instalk.cloud.instalkuserservice.controller;
 
 import org.instalk.cloud.common.feign.api.UserAPI;
+import org.instalk.cloud.common.model.dto.internal.ListDTO;
 import org.instalk.cloud.common.model.po.User;
 import org.instalk.cloud.instalkuserservice.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,8 +37,8 @@ public class InternalController implements UserAPI {
     }
 
     @Override
-    public List<User> getUsersByIds(@RequestBody List<Long> ids) {
-        return userService.getUsersByIds(ids);
+    public List<User> getUsersByIds(@RequestBody ListDTO<Long> listDTO) {
+        return userService.getUsersByIds(listDTO.getItems());
     }
 
     @Override
