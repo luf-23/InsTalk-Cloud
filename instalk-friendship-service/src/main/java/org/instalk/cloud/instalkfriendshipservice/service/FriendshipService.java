@@ -4,6 +4,7 @@ import org.instalk.cloud.common.feign.client.MessageFeignClient;
 import org.instalk.cloud.common.feign.client.UserFeignClient;
 import org.instalk.cloud.common.feign.client.WebSocketFeignClient;
 import org.instalk.cloud.common.model.dto.internal.DeleteMessageDTO;
+import org.instalk.cloud.common.model.dto.internal.ListDTO;
 import org.instalk.cloud.common.model.dto.internal.WsDeleteFriendDTO;
 import org.instalk.cloud.common.model.po.Friendship;
 import org.instalk.cloud.common.model.po.User;
@@ -110,7 +111,7 @@ public class FriendshipService {
     public Result<List<FriendVO>> getFriendList() {
         Long myId = ThreadLocalUtil.getId();
         List<Long> Ids = friendshipMapper.selectFriendsId(myId);
-        List<FriendVO> friendList = userFeignClient.getUsersByIds(Ids).stream().map(user -> {
+        List<FriendVO> friendList = userFeignClient.getUsersByIds(new ListDTO<>(Ids)).stream().map(user -> {
             FriendVO friendVO = new FriendVO();
             friendVO.setId(user.getId());
             friendVO.setUsername(user.getUsername());
@@ -126,7 +127,7 @@ public class FriendshipService {
     public Result<List<FriendVO>> getPendingList() {
         Long myId = ThreadLocalUtil.getId();
         List<Long> Ids = friendshipMapper.selectPendingId(myId);
-        List<FriendVO> pendingList = userFeignClient.getUsersByIds(Ids).stream().map(user -> {
+        List<FriendVO> pendingList = userFeignClient.getUsersByIds(new ListDTO<>(Ids)).stream().map(user -> {
             FriendVO friendVO = new FriendVO();
             friendVO.setId(user.getId());
             friendVO.setUsername(user.getUsername());

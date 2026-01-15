@@ -53,9 +53,33 @@ public class AuthorizeFilter implements GlobalFilter, Ordered {
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                 return exchange.getResponse().setComplete();
             }
-            ThreadLocalUtil.set(claims);
-            // 放行
-            return chain.filter(exchange);
+            
+            // 将解析后的用户信息添加到请求头中传递给下游服务
+            ServerWebExchange modifiedExchange = exchange.mutate()
+                    .request(builder -> {
+                        // 添加用户ID
+                        if (claims.containsKey("id")) {
+                            builder.header("X-User-Id", String.valueOf(claims.get("id")));
+                        }
+                        // 添加用户名
+                        if (claims.containsKey("username")) {
+                            builder.header("X-Username", String.valueOf(claims.get("username")));
+                        }
+                        // 添加JTI
+                        if (claims.containsKey("jti")) {
+                            builder.header("X-Token-Jti", String.valueOf(claims.get("jti")));
+                        }
+                        // 可以根据需要添加其他claims信息
+                        claims.forEach((key, value) -> {
+                            if (!key.equals("id") && !key.equals("username") && !key.equals("jti")) {
+                                builder.header("X-Claim-" + key, String.valueOf(value));
+                            }
+                        });
+                    })
+                    .build();
+            
+            // 放行修改后的请求
+            return chain.filter(modifiedExchange);
         }catch(Exception e){
             //System.out.println("token error");
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);

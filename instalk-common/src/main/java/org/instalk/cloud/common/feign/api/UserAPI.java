@@ -1,12 +1,12 @@
 package org.instalk.cloud.common.feign.api;
 
+import org.instalk.cloud.common.model.dto.internal.ListDTO;
 import org.instalk.cloud.common.model.po.User;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.Collection;
 import java.util.List;
 
 public interface UserAPI {
@@ -21,7 +21,7 @@ public interface UserAPI {
     User getUserById(@RequestParam("id") Long id);
     
     @PostMapping("/info/ids")
-    List<User> getUsersByIds(@RequestBody List<Long> ids);
+    List<User> getUsersByIds(@RequestBody ListDTO<Long> listDTO);
 
     @PostMapping("/add/user")
     User add(@RequestBody User user);
