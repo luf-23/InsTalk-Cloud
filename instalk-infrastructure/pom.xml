@@ -41,5 +41,16 @@
     </dependencies>
 
     <!-- 不添加spring-boot-maven-plugin，打包为普通jar供其他模块依赖 -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

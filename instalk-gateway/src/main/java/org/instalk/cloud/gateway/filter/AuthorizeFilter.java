@@ -1,7 +1,6 @@
 package org.instalk.cloud.gateway.filter;
 
 import org.instalk.cloud.common.util.JwtUtil;
-import org.instalk.cloud.common.util.ThreadLocalUtil;
 import org.instalk.cloud.common.util.TokenUtil;
 import org.instalk.cloud.gateway.config.AuthWhiteListProperties;
 import org.instalk.cloud.infrastructure.redis.RedisUtilImpl;

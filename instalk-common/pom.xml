@@ -20,6 +20,13 @@
     </properties>
 
     <dependencies>
+
+        <!-- 显式声明依赖（如 Lombok） -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+
         <!-- JWT - 纯Token编解码工具 -->
         <dependency>
             <groupId>com.auth0</groupId>
@@ -43,5 +50,18 @@
             <scope>provided</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 禁用 Spring Boot 插件 -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip> <!-- 不打包成可执行 jar -->
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

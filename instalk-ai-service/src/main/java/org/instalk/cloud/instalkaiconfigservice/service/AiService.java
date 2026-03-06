@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
 
@@ -118,15 +119,16 @@ public class AiService {
                         String content = aiUtil.parseStreamResponse(chunk);
                         if (content != null && !content.isEmpty()) {
                             fullResponse.append(content);
-                            // 发送到前端
+                            // 发送到前端（将 \n 转义为字面量 \n，防止 SSE 换行拆包导致前端丢失换行）
                             emitter.send(SseEmitter.event()
-                                    .data(content)
+                                    .data(content.replace("\n", "\\n"))
                                     .name("message"));
                         }
                     } catch (Exception e) {
                         emitter.completeWithError(e);
                     }
                 })
+                .publishOn(Schedulers.boundedElastic())
                 .doOnComplete(() -> {
                     try {
                         // 保存AI回复
