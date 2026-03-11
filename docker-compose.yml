@@ -1,0 +1,69 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: local_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
+  mysql:
+    image: mysql:5.7
+    container_name: local_mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-ROOT_PASSWORD}
+      # Use imported data instead of creating separate default database/user
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    command: ["mysqld", "--default-authentication-plugin=mysql_native_password"]
+
+  nacos:
+    image: nacos/nacos-server:v2.2.3
+    container_name: local_nacos
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+      - "9849:9849"
+    environment:
+      - MODE=standalone
+      - PREFER_HOST_MODE=hostname
+      - SPRING_DATASOURCE_PLATFORM=mysql
+      - MYSQL_SERVICE_HOST=mysql
+      - MYSQL_SERVICE_PORT=3306
+      - MYSQL_SERVICE_DB_NAME=${MYSQL_SERVICE_DB_NAME:-DATABASE_NAME}
+      - MYSQL_SERVICE_USER=${MYSQL_SERVICE_USER:-DATABASE_USER}
+      - MYSQL_SERVICE_PASSWORD=${MYSQL_SERVICE_PASSWORD:-DATABASE_PASSWORD}
+      - NACOS_AUTH_ENABLE=true
+      - NACOS_AUTH_TOKEN=${NACOS_AUTH_TOKEN:-AUTH_TOKEN}
+      - NACOS_AUTH_IDENTITY_KEY=${NACOS_AUTH_IDENTITY_KEY:-IDENTITY_KEY}
+      - NACOS_AUTH_IDENTITY_VALUE=${NACOS_AUTH_IDENTITY_VALUE:-IDENTITY_VALUE}
+    volumes:
+      - ./nacos_data:/home/nacos/data
+    depends_on:
+      - mysql
+    restart: on-failure
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: local_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:-RABBIT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:-RABBIT_PASSWORD}
+      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_DEFAULT_VHOST:-RABBIT_VHOST}
+    volumes:
+      - ./rabbitmq_data:/var/lib/rabbitmq
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5

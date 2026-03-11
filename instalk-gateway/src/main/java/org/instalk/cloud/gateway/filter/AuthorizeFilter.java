@@ -31,7 +31,6 @@ public class AuthorizeFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        System.out.println("AuthorizeFilter");
         
         // 获取请求路径
         String path = exchange.getRequest().getURI().getPath();

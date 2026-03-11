@@ -30,5 +30,5 @@ public interface UserAPI {
     User addRobot(@RequestBody User robot);
 
     @GetMapping("/info/nameLike")
-    List<User> getUserByNameLike(@RequestParam String usernameLike);
+    List<User> getUserByNameLike(@RequestParam("usernameLike") String usernameLike);
 }

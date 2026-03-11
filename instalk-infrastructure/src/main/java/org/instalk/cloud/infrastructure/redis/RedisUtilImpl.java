@@ -1,5 +1,8 @@
 package org.instalk.cloud.infrastructure.redis;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.instalk.cloud.common.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -17,6 +20,13 @@ public class RedisUtilImpl implements RedisUtil {
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
+    private final ObjectMapper objectMapper;
+
+    public RedisUtilImpl() {
+        this.objectMapper = new ObjectMapper();
+        // 支持 Java 8 日期时间类型
+        this.objectMapper.registerModule(new JavaTimeModule());
+    }
 
     public StringRedisTemplate getStringRedisTemplate() {
         return stringRedisTemplate;
@@ -40,6 +50,29 @@ public class RedisUtilImpl implements RedisUtil {
 
     public Boolean hasKey(String key) {
         return stringRedisTemplate.hasKey(key);
+    }
+
+    @Override
+    public <T> void setObject(String key, T value, long timeout, TimeUnit unit) {
+        try {
+            String jsonValue = objectMapper.writeValueAsString(value);
+            stringRedisTemplate.opsForValue().set(key, jsonValue, timeout, unit);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Redis缓存对象序列化失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public <T> T getObject(String key, Class<T> clazz) {
+        String jsonValue = stringRedisTemplate.opsForValue().get(key);
+        if (jsonValue == null) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(jsonValue, clazz);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Redis缓存对象反序列化失败: " + e.getMessage(), e);
+        }
     }
 
 }

@@ -52,7 +52,7 @@ public class InternalController implements UserAPI {
     }
 
     @Override
-    public List<User> getUserByNameLike(@RequestParam String username) {
-        return userService.getUserByNameLike(username);
+    public List<User> getUserByNameLike(@RequestParam String usernameLike) {
+        return userService.getUserByNameLike(usernameLike);
     }
 }

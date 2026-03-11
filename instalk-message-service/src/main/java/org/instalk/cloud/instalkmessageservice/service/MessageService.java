@@ -5,6 +5,7 @@ import org.instalk.cloud.common.feign.client.GroupFeignClient;
 import org.instalk.cloud.common.feign.client.WebSocketFeignClient;
 import org.instalk.cloud.common.model.dto.MessageDTO;
 import org.instalk.cloud.common.model.dto.internal.*;
+import org.instalk.cloud.common.model.mq.MessageMQ;
 import org.instalk.cloud.common.model.po.Message;
 import org.instalk.cloud.common.model.vo.GroupVO;
 import org.instalk.cloud.common.model.vo.MessageVO;
@@ -12,6 +13,7 @@ import org.instalk.cloud.common.model.vo.Result;
 import org.instalk.cloud.common.util.ThreadLocalUtil;
 import org.instalk.cloud.instalkmessageservice.mapper.MessageMapper;
 import org.instalk.cloud.instalkmessageservice.mapper.MessageStatusMapper;
+import org.instalk.cloud.instalkmessageservice.mq.MessageProducer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +38,9 @@ public class MessageService {
     @Autowired
     private GroupFeignClient groupFeignClient;
 
+    @Autowired
+    private MessageProducer messageProducer;
+
     public void deleteById1AndId2(DeleteMessageDTO deleteMessageDTO) {
         messageMapper.deleteById1AndId2(deleteMessageDTO.getId1(), deleteMessageDTO.getId2());
     }
@@ -56,11 +61,15 @@ public class MessageService {
             }
             messageMapper.addPrivateMessage(message);
             messageStatusMapper.add(message.getId(),message.getReceiverId());
-
-            // 通过 WebSocket 推送消息给接收者
             message.setSentAt(messageMapper.selectSentAtById(message.getId()));
-            MessageVO messageVO = new MessageVO(message, Boolean.FALSE); // 对接收者来说是未读
-            webSocketFeignClient.sendMessageToUser(new WsSendPrivateMessageDTO(message.getReceiverId(), messageVO));
+
+            // 通过 RabbitMQ 发送消息
+            MessageVO messageVO = new MessageVO(message, Boolean.FALSE);
+            MessageMQ messageMQ = new MessageMQ();
+            messageMQ.setMessageType("PRIVATE");
+            messageMQ.setMessageVO(messageVO);
+            messageMQ.setReceiverIds(List.of(message.getReceiverId()));
+            messageProducer.sendPrivateMessage(messageMQ);
         }
         if (message.getGroupId()!= null){
             if(groupFeignClient.getMember(new GetGroupMemberDTO(senderId,message.getGroupId()))== null){
@@ -74,11 +83,15 @@ public class MessageService {
                 messageStatusMapper.add(message.getId(),member.getId());
                 receiverIdList.add(member.getId());
             }
-
-            // 通过 WebSocket 推送消息给所有群成员（除发送者外）
             message.setSentAt(messageMapper.selectSentAtById(message.getId()));
-            MessageVO messageVO = new MessageVO(message, Boolean.FALSE); // 对接收者来说是未读
-            webSocketFeignClient.broadcastMessageToUsers(new WsBroadcastMessageDTO(receiverIdList, messageVO));
+
+            // 通过 RabbitMQ 发送消息
+            MessageVO messageVO = new MessageVO(message, Boolean.FALSE);
+            MessageMQ messageMQ = new MessageMQ();
+            messageMQ.setMessageType("GROUP");
+            messageMQ.setMessageVO(messageVO);
+            messageMQ.setReceiverIds(receiverIdList);
+            messageProducer.sendGroupMessage(messageMQ);
         }
         message.setSentAt(messageMapper.selectSentAtById(message.getId()));
         MessageVO messageVO = new MessageVO(message,Boolean.TRUE);

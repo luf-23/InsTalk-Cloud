@@ -39,6 +39,13 @@
 			<artifactId>instalk-common</artifactId>
 			<version>1.0.0</version>
 		</dependency>
+
+		<!-- Infrastructure模块 -->
+		<dependency>
+			<groupId>org.instalk.cloud</groupId>
+			<artifactId>instalk-infrastructure</artifactId>
+			<version>1.0.0</version>
+		</dependency>
 		
 		<!-- Nacos服务注册发现 -->
 		<dependency>
