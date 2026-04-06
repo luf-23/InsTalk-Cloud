@@ -30,8 +30,7 @@
         <module>instalk-user-service</module> <!--8082-->
         <module>instalk-friendship-service</module> <!--8083-->
         <module>instalk-ai-service</module> <!--8084-->
-        <module>instalk-message-service</module> <!--8085-->
-        <module>instalk-websocket-service</module> <!--8086-->
+        <module>instalk-chat-service</module> <!--8085-->
         <module>instalk-group-service</module> <!--8087-->
         <module>instalk-oss-service</module> <!--8088-->
     </modules>
