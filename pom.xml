@@ -30,7 +30,6 @@
         <module>instalk-social-service</module> <!--8083-->
         <module>instalk-ai-service</module> <!--8084-->
         <module>instalk-chat-service</module> <!--8085-->
-        <module>instalk-oss-service</module> <!--8088-->
     </modules>
 
     <!-- 统一属性管理 -->

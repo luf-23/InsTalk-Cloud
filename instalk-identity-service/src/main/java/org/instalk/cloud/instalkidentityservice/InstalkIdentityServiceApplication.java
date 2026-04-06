@@ -11,7 +11,8 @@ import org.springframework.context.annotation.ComponentScan;
 @MapperScan(basePackages = "org.instalk.cloud.instalkuserservice.mapper")
 @ComponentScan(basePackages = {
     "org.instalk.cloud.instalkuserservice",
-    "org.instalk.cloud.instalkauthservice"
+    "org.instalk.cloud.instalkauthservice",
+    "org.instalk.cloud.instalkossservice"
 })
 public class InstalkIdentityServiceApplication {
 
