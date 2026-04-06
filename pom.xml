@@ -26,8 +26,7 @@
         <module>instalk-common</module>
         <module>instalk-infrastructure</module>
         <module>instalk-gateway</module> <!--10010-->
-        <module>instalk-auth-service</module> <!--8081-->
-        <module>instalk-user-service</module> <!--8082-->
+        <module>instalk-identity-service</module> <!--8081-->
         <module>instalk-social-service</module> <!--8083-->
         <module>instalk-ai-service</module> <!--8084-->
         <module>instalk-chat-service</module> <!--8085-->

@@ -1,13 +1,12 @@
-package org.instalk.cloud.instalkauthservice;
+package org.instalk.cloud.instalkidentityservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class InstalkAuthServiceApplicationTests {
+class InstalkIdentityServiceApplicationTests {
 
     @Test
     void contextLoads() {
     }
-
 }

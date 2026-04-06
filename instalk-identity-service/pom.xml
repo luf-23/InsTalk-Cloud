@@ -10,9 +10,9 @@
 		<version>1.0.0</version>
 	</parent>
 	
-	<artifactId>instalk-user-service</artifactId>
-	<name>instalk-user-service</name>
-	<description>用户服务</description>
+	<artifactId>instalk-identity-service</artifactId>
+	<name>instalk-identity-service</name>
+	<description>身份服务（用户 + 认证）</description>
 	
 	<dependencies>
 		<!-- Spring Boot Web -->
@@ -63,6 +63,12 @@
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-loadbalancer</artifactId>
+		</dependency>
+
+		<!-- OpenFeign -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-openfeign</artifactId>
 		</dependency>
 
 		<!-- Spring Boot Test -->

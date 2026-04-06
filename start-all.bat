@@ -13,7 +13,7 @@ echo.
 
 :: 第一步：构建整个项目
 echo [1/2] 正在构建项目 (跳过测试)...
-call instalk-auth-service\mvnw.cmd -f pom.xml package -DskipTests -q
+call instalk-identity-service\mvnw.cmd -f pom.xml package -DskipTests -q
 if %errorlevel% neq 0 (
     echo [错误] 构建失败，请检查 Maven 输出！
     pause
@@ -29,10 +29,7 @@ echo.
 start "Gateway        :10010" cmd /k "%JAVA%" -jar instalk-gateway\target\instalk-gateway-1.0.0.jar
 ping 127.0.0.1 -n 3 >nul 2>&1
 
-start "Auth Service   :8081 " cmd /k "%JAVA%" -jar instalk-auth-service\target\instalk-auth-service-1.0.0.jar
-ping 127.0.0.1 -n 3 >nul 2>&1
-
-start "User Service   :8082 " cmd /k "%JAVA%" -jar instalk-user-service\target\instalk-user-service-1.0.0.jar
+start "Identity Service:8081" cmd /k "%JAVA%" -jar instalk-identity-service\target\instalk-identity-service-1.0.0.jar
 ping 127.0.0.1 -n 3 >nul 2>&1
 
 start "Social Service :8083 " cmd /k "%JAVA%" -jar instalk-social-service\target\instalk-social-service-1.0.0.jar
@@ -50,8 +47,7 @@ echo.
 echo ================================================
 echo   所有服务已启动！(各服务已在独立窗口中运行)
 echo   Gateway      : http://localhost:10010
-echo   Auth         : http://localhost:8081
-echo   User         : http://localhost:8082
+echo   Identity     : http://localhost:8081
 echo   Social       : http://localhost:8083
 echo   AI           : http://localhost:8084
 echo   Chat         : http://localhost:8085
