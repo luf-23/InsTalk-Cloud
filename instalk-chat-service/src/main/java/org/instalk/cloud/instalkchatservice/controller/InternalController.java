@@ -44,6 +44,11 @@ public class InternalController implements MessageAPI {
     }
 
     @Override
+    public List<Message> getPrivateHistory(@RequestParam Long userId, @RequestParam Long robotId, @RequestParam Integer limit) {
+        return messageMapper.selectPrivateHistory(userId, robotId, limit);
+    }
+
+    @Override
     public Message addPrivateMessage(@RequestBody Message assistantMessage) {
         messageMapper.addPrivateMessage(assistantMessage);
         return assistantMessage;

@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.instalk.cloud.common.model.dto.AiChatDTO;
+import org.instalk.cloud.common.model.po.Message;
 import org.instalk.cloud.common.model.po.UserAiConfig;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class AiUtil {
@@ -192,5 +195,36 @@ public class AiUtil {
         long chineseTokens = chineseCharCount;
 
         return englishTokens + chineseTokens;
+    }
+
+    public String buildSimpleSummary(List<Message> messages, Long userId) {
+        if (messages == null || messages.isEmpty()) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        for (Message message : messages) {
+            String role = message.getSenderId().equals(userId) ? "用户" : "助手";
+            String content = message.getContent() == null ? "" : message.getContent().trim();
+            if (content.isEmpty()) {
+                continue;
+            }
+            lines.add(role + ": " + content);
+        }
+        return trimSummaryLines(lines, 12, 2000);
+    }
+
+    private String trimSummaryLines(List<String> lines, int maxLines, int maxChars) {
+        if (lines == null || lines.isEmpty()) {
+            return "";
+        }
+        List<String> trimmed = lines;
+        if (lines.size() > maxLines) {
+            trimmed = lines.subList(lines.size() - maxLines, lines.size());
+        }
+        String joined = trimmed.stream().collect(Collectors.joining("\n"));
+        if (joined.length() > maxChars) {
+            return joined.substring(joined.length() - maxChars);
+        }
+        return joined;
     }
 }

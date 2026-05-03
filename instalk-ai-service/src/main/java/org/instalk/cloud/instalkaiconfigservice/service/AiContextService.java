@@ -1,0 +1,179 @@
+package org.instalk.cloud.instalkaiconfigservice.service;
+
+import org.instalk.cloud.common.model.dto.AiChatDTO;
+import org.instalk.cloud.common.model.po.AiChatSummary;
+import org.instalk.cloud.common.model.po.AiMemory;
+import org.instalk.cloud.common.model.po.Message;
+import org.instalk.cloud.instalkaiconfigservice.mapper.AiChatSummaryMapper;
+import org.instalk.cloud.instalkaiconfigservice.mapper.AiMemoryMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.instalk.cloud.instalkaiconfigservice.util.AiUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+public class AiContextService {
+
+    public static final int DEFAULT_WINDOW_SIZE = 12;
+    public static final int DEFAULT_SUMMARY_TRIGGER_SIZE = 24;
+    public static final int DEFAULT_RAG_TOP_K = 6;
+    public static final int DEFAULT_MAX_MEMORY_ITEMS = 200;
+
+    @Autowired
+    private AiChatSummaryMapper aiChatSummaryMapper;
+
+    @Autowired
+    private AiMemoryMapper aiMemoryMapper;
+
+    @Autowired
+    private AiUtil aiUtil;
+
+    @Autowired
+    private EmbeddingService embeddingService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public List<AiChatDTO.AiChatMessage> buildContext(Long userId,
+                                                      Long robotId,
+                                                      List<Message> historyMessages,
+                                                      String userMessage,
+                                                      int windowSize,
+                                                      int ragTopK,
+                                                      boolean includeSummary,
+                                                      boolean includeRag) {
+        List<AiChatDTO.AiChatMessage> result = new ArrayList<>();
+
+        if (includeSummary) {
+            AiChatSummary summary = aiChatSummaryMapper.selectByUserAndRobot(userId, robotId);
+            if (summary != null && summary.getSummary() != null && !summary.getSummary().isBlank()) {
+                AiChatDTO.AiChatMessage summaryMessage = new AiChatDTO.AiChatMessage();
+                summaryMessage.setRole("system");
+                summaryMessage.setContent("对话摘要:\n" + summary.getSummary());
+                result.add(summaryMessage);
+            }
+        }
+
+        if (includeRag) {
+            List<AiMemory> memories = fetchRagMemories(userId, robotId, userMessage, ragTopK);
+            if (!memories.isEmpty()) {
+                String memoryText = memories.stream()
+                        .map(mem -> "- " + mem.getContent())
+                        .collect(Collectors.joining("\n"));
+                AiChatDTO.AiChatMessage ragMessage = new AiChatDTO.AiChatMessage();
+                ragMessage.setRole("system");
+                ragMessage.setContent("相关记忆:\n" + memoryText);
+                result.add(ragMessage);
+            }
+        }
+
+        if (historyMessages == null || historyMessages.isEmpty()) {
+            return result;
+        }
+
+        List<Message> sorted = historyMessages.stream()
+                .sorted(Comparator.comparing(Message::getSentAt))
+                .toList();
+        int start = Math.max(sorted.size() - windowSize, 0);
+        for (int i = start; i < sorted.size(); i++) {
+            Message message = sorted.get(i);
+            AiChatDTO.AiChatMessage aiMessage = new AiChatDTO.AiChatMessage();
+            aiMessage.setRole(message.getSenderId().equals(userId) ? "user" : "assistant");
+            aiMessage.setContent(message.getContent());
+            result.add(aiMessage);
+        }
+
+        return result;
+    }
+
+    public void updateSummaryIfNeeded(Long userId,
+                                      Long robotId,
+                                      List<Message> historyMessages,
+                                      int summaryTriggerSize,
+                                      int windowSize,
+                                      Long currentMessageId) {
+        if (historyMessages == null || historyMessages.size() < summaryTriggerSize) {
+            return;
+        }
+
+        List<Message> sorted = historyMessages.stream()
+                .sorted(Comparator.comparing(Message::getSentAt))
+                .toList();
+
+        int compactCount = Math.max(sorted.size() - windowSize, 0);
+        if (compactCount <= 0) {
+            return;
+        }
+
+        String summaryText = aiUtil.buildSimpleSummary(sorted.subList(0, compactCount), userId);
+        if (summaryText.isBlank()) {
+            return;
+        }
+
+        aiChatSummaryMapper.upsert(userId, robotId, summaryText, currentMessageId);
+    }
+
+    public void upsertMemory(Long userId, Long robotId, String content) {
+        if (content == null || content.isBlank()) {
+            return;
+        }
+        List<Double> embedding = embeddingService.embed(content);
+        String embeddingJson = null;
+        if (embedding != null && !embedding.isEmpty()) {
+            try {
+                embeddingJson = objectMapper.writeValueAsString(embedding);
+            } catch (Exception ignored) {
+                embeddingJson = null;
+            }
+        }
+        aiMemoryMapper.insert(userId, robotId, "FACT", content.trim(), embeddingJson);
+    }
+
+    private List<AiMemory> fetchRagMemories(Long userId, Long robotId, String query, int ragTopK) {
+        String normalizedQuery = query == null ? "" : query.trim();
+        if (normalizedQuery.isEmpty()) {
+            return distinctMemories(aiMemoryMapper.selectLatest(userId, robotId, DEFAULT_MAX_MEMORY_ITEMS), ragTopK);
+        }
+
+        List<Double> queryEmbedding = embeddingService.embed(normalizedQuery);
+        if (queryEmbedding == null || queryEmbedding.isEmpty()) {
+            return distinctMemories(aiMemoryMapper.selectLatest(userId, robotId, DEFAULT_MAX_MEMORY_ITEMS), ragTopK);
+        }
+        String embeddingJson;
+        try {
+            embeddingJson = objectMapper.writeValueAsString(queryEmbedding);
+        } catch (Exception e) {
+            return distinctMemories(aiMemoryMapper.selectLatest(userId, robotId, DEFAULT_MAX_MEMORY_ITEMS), ragTopK);
+        }
+        return distinctMemories(aiMemoryMapper.selectTopByEmbedding(userId, robotId, embeddingJson, ragTopK), ragTopK);
+    }
+
+    private List<AiMemory> distinctMemories(List<AiMemory> memories, int ragTopK) {
+        if (memories == null || memories.isEmpty()) {
+            return List.of();
+        }
+        Set<String> seen = new HashSet<>();
+        List<AiMemory> result = new ArrayList<>();
+        for (AiMemory memory : memories) {
+            if (memory.getContent() == null) {
+                continue;
+            }
+            String normalized = memory.getContent().trim();
+            if (normalized.isEmpty() || !seen.add(normalized)) {
+                continue;
+            }
+            result.add(memory);
+            if (result.size() >= ragTopK) {
+                break;
+            }
+        }
+        return result;
+    }
+
+}

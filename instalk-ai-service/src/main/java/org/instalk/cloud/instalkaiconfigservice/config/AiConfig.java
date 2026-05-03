@@ -12,10 +12,21 @@ public class AiConfig {
     private String API_KEY;
     @Value("${ai.url}")
     private String API_URL;
+    @Value("${ai.embedding-url}")
+    private String EMBEDDING_URL;
     @Bean
     public WebClient aiWebClient(WebClient.Builder builder) {
         return builder
                 .baseUrl(API_URL)
+                .defaultHeader("Authorization", "Bearer " + API_KEY)
+                .defaultHeader("Content-Type", "application/json")
+                .build();
+    }
+
+    @Bean(name = "embeddingWebClient")
+    public WebClient embeddingWebClient(WebClient.Builder builder) {
+        return builder
+                .baseUrl(EMBEDDING_URL)
                 .defaultHeader("Authorization", "Bearer " + API_KEY)
                 .defaultHeader("Content-Type", "application/json")
                 .build();

@@ -14,6 +14,7 @@ import org.instalk.cloud.common.model.vo.Result;
 import org.instalk.cloud.common.model.vo.UserAiConfigVO;
 import org.instalk.cloud.common.util.ThreadLocalUtil;
 import org.instalk.cloud.instalkaiconfigservice.mapper.UserAiConfigMapper;
+import org.instalk.cloud.instalkaiconfigservice.service.AiContextService;
 import org.instalk.cloud.instalkaiconfigservice.util.AiUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,9 @@ public class AiService {
 
     @Autowired
     private WebSocketFeignClient webSocketFeignClient;
+
+    @Autowired
+    private AiContextService aiContextService;
 
     public Result<String> getCredential() {
         String taskId = UUID.randomUUID().toString().replace("-", "");
@@ -89,21 +93,40 @@ public class AiService {
         // 创建SSE发射器，设置超时时间为5分钟
         SseEmitter emitter = new SseEmitter(300000L);
 
+        // 获取用户当前消息
+        Message userMessage = messageFeignClient.getById(aiChatDTO.getCurrentUserMessageId());
+        if (userMessage == null) {
+            throw new RuntimeException("当前消息不存在");
+        }
+
+        int windowSize = resolvePositiveOrDefault(aiChatDTO.getWindowSize(), AiContextService.DEFAULT_WINDOW_SIZE);
+        int summaryTriggerSize = resolvePositiveOrDefault(aiChatDTO.getSummaryTriggerSize(), AiContextService.DEFAULT_SUMMARY_TRIGGER_SIZE);
+        int ragTopK = resolvePositiveOrDefault(aiChatDTO.getRagTopK(), AiContextService.DEFAULT_RAG_TOP_K);
+        boolean includeSummary = aiChatDTO.getIncludeSummary() == null || aiChatDTO.getIncludeSummary();
+        boolean includeRag = aiChatDTO.getIncludeRag() == null || aiChatDTO.getIncludeRag();
+
+        int historyLimit = Math.max(windowSize, summaryTriggerSize);
+
         // 获取历史消息
-        List<AiChatDTO.AiChatMessage> historyMessages  = messageFeignClient.getByIds(aiChatDTO.getMessageIds()).stream().map(message -> {
-            AiChatDTO.AiChatMessage aiChatMessage = new AiChatDTO.AiChatMessage();
-            aiChatMessage.setRole(Objects.equals(message.getSenderId(), userId) ? "user" : "assistant");
-            aiChatMessage.setContent(message.getContent());
-            return aiChatMessage;
-        }).toList();
+        List<Message> historyMessages = resolveHistoryMessages(aiChatDTO, userId, robotId, historyLimit);
+
+        List<AiChatDTO.AiChatMessage> contextMessages = aiContextService.buildContext(
+                userId,
+                robotId,
+                historyMessages,
+                userMessage.getContent(),
+                windowSize,
+                ragTopK,
+                includeSummary,
+                includeRag
+        );
 
         // 将用户消息通过 WebSocket 发送给 AI Robot 用户
-        Message userMessage = messageFeignClient.getById(aiChatDTO.getCurrentUserMessageId());
         MessageVO messageVO = new MessageVO(userMessage, false);
         webSocketFeignClient.sendMessageToUser(new WsSendPrivateMessageDTO(robotId, messageVO));
 
         // 构建请求体
-        String requestBody = aiUtil.buildRequestBody(historyMessages, userAiConfig, userMessage.getContent());
+        String requestBody = aiUtil.buildRequestBody(contextMessages, userAiConfig, userMessage.getContent());
 
         // 用于累积AI的完整回复
         StringBuilder fullResponse = new StringBuilder();
@@ -147,6 +170,15 @@ public class AiService {
                         userAiConfigMapper.increaseMessageCount(robotId);
                         //增加token使用
                         userAiConfigMapper.increaseTokenCount(robotId,aiUtil.estimateTokenCount(fullResponse.toString()));
+
+                        // 更新摘要与记忆
+                        List<Message> summarySource = new ArrayList<>(historyMessages == null ? List.of() : historyMessages);
+                        if (summarySource.stream().noneMatch(message -> Objects.equals(message.getId(), userMessage.getId()))) {
+                            summarySource.add(userMessage);
+                        }
+                        summarySource.add(assistantMessage);
+                        aiContextService.updateSummaryIfNeeded(userId, robotId, summarySource, summaryTriggerSize, windowSize, assistantMessage.getId());
+                        aiContextService.upsertMemory(userId, robotId, userMessage.getContent());
 
                         // 通过 WebSocket 将 AI 回复推送给用户和AI自己
                         MessageVO aiMessageVO = new MessageVO(messageFeignClient.getById(assistantMessage.getId()), messageFeignClient.getStatus(new MessageStatusDTO(assistantMessage.getId(), userId)));
@@ -206,6 +238,21 @@ public class AiService {
         });
 
         return emitter;
+    }
+
+    private int resolvePositiveOrDefault(Integer value, int defaultValue) {
+        if (value == null || value <= 0) {
+            return defaultValue;
+        }
+        return value;
+    }
+
+    private List<Message> resolveHistoryMessages(AiChatDTO aiChatDTO, Long userId, Long robotId, int limit) {
+        List<Long> messageIds = aiChatDTO.getMessageIds();
+        if (messageIds != null && !messageIds.isEmpty()) {
+            return messageFeignClient.getByIds(messageIds);
+        }
+        return messageFeignClient.getPrivateHistory(userId, robotId, limit);
     }
 
 

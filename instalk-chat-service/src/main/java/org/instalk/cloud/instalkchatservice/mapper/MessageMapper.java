@@ -59,4 +59,20 @@ public interface MessageMapper {
 
     @Delete("delete from message where sender_id=#{id1} and receiver_id=#{id2} or sender_id=#{id2} and receiver_id=#{id1}")
     void deleteById1AndId2(Long id1, Long id2);
+
+        @Select({
+            "<script>",
+            "SELECT * FROM (",
+            "  SELECT * FROM message",
+            "  WHERE group_id IS NULL",
+            "    AND ((sender_id = #{userId} AND receiver_id = #{robotId})",
+            "      OR (sender_id = #{robotId} AND receiver_id = #{userId}))",
+            "  ORDER BY sent_at DESC",
+            "  LIMIT #{limit}",
+            ") t ORDER BY t.sent_at ASC",
+            "</script>"
+        })
+        List<Message> selectPrivateHistory(@Param("userId") Long userId,
+                           @Param("robotId") Long robotId,
+                           @Param("limit") Integer limit);
 }

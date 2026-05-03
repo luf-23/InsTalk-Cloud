@@ -22,6 +22,9 @@ public interface MessageAPI {
     @PostMapping("/getByIds")
     List<Message> getByIds(@RequestBody List<Long> messageIds);
 
+    @GetMapping("/getPrivateHistory")
+    List<Message> getPrivateHistory(@RequestParam Long userId, @RequestParam Long robotId, @RequestParam Integer limit);
+
     @PostMapping("/addPrivateMessage")
     Message addPrivateMessage(@RequestBody Message assistantMessage);
 
