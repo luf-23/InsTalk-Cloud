@@ -132,7 +132,7 @@ public class AiContextService {
                 embeddingJson = null;
             }
         }
-        aiMemoryMapper.insert(userId, robotId, "FACT", content.trim(), embeddingJson);
+        aiMemoryMapper.insert(userId, robotId, "FACT", content.trim(), embeddingJson, embeddingJson);
     }
 
     private List<AiMemory> fetchRagMemories(Long userId, Long robotId, String query, int ragTopK) {
@@ -145,13 +145,13 @@ public class AiContextService {
         if (queryEmbedding == null || queryEmbedding.isEmpty()) {
             return distinctMemories(aiMemoryMapper.selectLatest(userId, robotId, DEFAULT_MAX_MEMORY_ITEMS), ragTopK);
         }
-        String embeddingJson;
+        String embeddingVector;
         try {
-            embeddingJson = objectMapper.writeValueAsString(queryEmbedding);
+            embeddingVector = objectMapper.writeValueAsString(queryEmbedding);
         } catch (Exception e) {
             return distinctMemories(aiMemoryMapper.selectLatest(userId, robotId, DEFAULT_MAX_MEMORY_ITEMS), ragTopK);
         }
-        return distinctMemories(aiMemoryMapper.selectTopByEmbedding(userId, robotId, embeddingJson, ragTopK), ragTopK);
+        return distinctMemories(aiMemoryMapper.selectTopByEmbedding(userId, robotId, embeddingVector, ragTopK), ragTopK);
     }
 
     private List<AiMemory> distinctMemories(List<AiMemory> memories, int ragTopK) {

@@ -14,7 +14,8 @@ public interface AiChatSummaryMapper {
 
     @Insert("INSERT INTO ai_chat_summary (user_id, robot_id, summary, last_message_id) " +
             "VALUES (#{userId}, #{robotId}, #{summary}, #{lastMessageId}) " +
-            "ON DUPLICATE KEY UPDATE summary = VALUES(summary), last_message_id = VALUES(last_message_id), updated_at = CURRENT_TIMESTAMP")
+            "ON CONFLICT (user_id, robot_id) DO UPDATE SET summary = EXCLUDED.summary, " +
+            "last_message_id = EXCLUDED.last_message_id, updated_at = CURRENT_TIMESTAMP")
     void upsert(@Param("userId") Long userId,
                 @Param("robotId") Long robotId,
                 @Param("summary") String summary,

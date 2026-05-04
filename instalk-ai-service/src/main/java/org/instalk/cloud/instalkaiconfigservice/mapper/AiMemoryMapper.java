@@ -21,18 +21,19 @@ public interface AiMemoryMapper {
 
     @Select("SELECT * FROM ai_memory " +
             "WHERE user_id = #{userId} AND robot_id = #{robotId} AND embedding IS NOT NULL " +
-            "ORDER BY DOT_PRODUCT(embedding, CAST(#{embeddingJson} AS VECTOR(1536))) DESC " +
+            "ORDER BY embedding <=> CAST(#{embeddingVector} AS vector) ASC " +
             "LIMIT #{limit}")
     List<AiMemory> selectTopByEmbedding(@Param("userId") Long userId,
                                         @Param("robotId") Long robotId,
-                                        @Param("embeddingJson") String embeddingJson,
+                                        @Param("embeddingVector") String embeddingVector,
                                         @Param("limit") int limit);
 
     @Insert("INSERT INTO ai_memory (user_id, robot_id, type, content, embedding_json, embedding) " +
-            "VALUES (#{userId}, #{robotId}, #{type}, #{content}, #{embeddingJson}, CAST(#{embeddingJson} AS VECTOR(1536)))")
+            "VALUES (#{userId}, #{robotId}, #{type}, #{content}, CAST(#{embeddingJson} AS jsonb), CAST(#{embeddingVector} AS vector))")
     void insert(@Param("userId") Long userId,
                 @Param("robotId") Long robotId,
                 @Param("type") String type,
                 @Param("content") String content,
-                @Param("embeddingJson") String embeddingJson);
+                @Param("embeddingJson") String embeddingJson,
+                @Param("embeddingVector") String embeddingVector);
 }
