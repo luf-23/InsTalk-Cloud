@@ -21,6 +21,19 @@ services:
       - ./mysql_data:/var/lib/mysql
       - ./mysql-init:/docker-entrypoint-initdb.d
 
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: local_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: instalk
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+
   nacos:
     image: nacos/nacos-server:v2.2.3
     container_name: local_nacos
@@ -31,18 +44,9 @@ services:
     environment:
       - MODE=standalone
       - PREFER_HOST_MODE=hostname
-      - SPRING_DATASOURCE_PLATFORM=mysql
-      - MYSQL_SERVICE_HOST=mysql
-      - MYSQL_SERVICE_PORT=3306
-      - MYSQL_SERVICE_DB_NAME=nacos_config
-      - MYSQL_SERVICE_USER=root
-      - MYSQL_SERVICE_PASSWORD=rootpassword
-      - NACOS_AUTH_ENABLE=true
-      - NACOS_AUTH_TOKEN=dGhpcy1pcy1hLTMyLWJ5dGUtcmFuZG9tLXNlY3JldC0xMjM0NTY=
-      - NACOS_AUTH_IDENTITY_KEY=nacos
-      - NACOS_AUTH_IDENTITY_VALUE=nacos
     volumes:
       - ./nacos_data:/home/nacos/data
+      - ./nacos-conf/application.properties:/home/nacos/conf/application.properties
     depends_on:
       - mysql
     restart: on-failure

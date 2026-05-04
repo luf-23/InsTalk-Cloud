@@ -43,8 +43,8 @@ Thumbs.db
 
 # Docker 本地数据/初始化目录
 mysql_data/
-mysql-init/
 redis_data/
 nacos_data/
 rabbitmq_data/
 rabbitmq_log/
+postgres_data/
