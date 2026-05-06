@@ -32,8 +32,9 @@ public class MessageConsumer {
                 channel.basicAck(deliveryTag, false);
                 log.info("私聊消息已送达, ID: {}", messageId);
             } else {
-                log.warn("用户{}离线, 消息重新入队, ID: {}", receiverId, messageId);
-                channel.basicNack(deliveryTag, false, true);
+                // 消息已持久化；接收方离线（含永不连接 WebSocket 的 AI 机器人）时不应 requeue，否则会无限抢占消费者
+                channel.basicAck(deliveryTag, false);
+                log.debug("用户{}离线, 跳过实时推送（消息已持久化）, ID: {}", receiverId, messageId);
             }
         } catch (Exception e) {
             log.error("处理私聊消息失败, ID: {}", messageId, e);
@@ -63,8 +64,8 @@ public class MessageConsumer {
                 channel.basicAck(deliveryTag, false);
                 log.info("群消息推送完成, ID: {}, 成功: {}/{}", messageId, successCount, messageMQ.getReceiverIds().size());
             } else {
-                channel.basicNack(deliveryTag, false, true);
-                log.warn("群消息无人在线, 重新入队, ID: {}", messageId);
+                channel.basicAck(deliveryTag, false);
+                log.debug("群消息无在线成员, 跳过实时推送（消息已持久化）, ID: {}", messageId);
             }
         } catch (Exception e) {
             log.error("处理群聊消息失败, ID: {}", messageId, e);

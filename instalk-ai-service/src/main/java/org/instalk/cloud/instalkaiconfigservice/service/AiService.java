@@ -16,6 +16,7 @@ import org.instalk.cloud.common.util.ThreadLocalUtil;
 import org.instalk.cloud.instalkaiconfigservice.mapper.UserAiConfigMapper;
 import org.instalk.cloud.instalkaiconfigservice.service.AiContextService;
 import org.instalk.cloud.instalkaiconfigservice.util.AiUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -24,6 +25,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
 
+@Slf4j
 @Service
 public class AiService {
 
@@ -153,54 +155,24 @@ public class AiService {
                 })
                 .publishOn(Schedulers.boundedElastic())
                 .doOnComplete(() -> {
+                    // 上游模型流结束后立刻通知前端并关闭 SSE，再执行落库/摘要/RAG（否则前端会一直停在「流式中」）
                     try {
-                        // 保存AI回复
-                        Message assistantMessage = new Message();
-                        assistantMessage.setSenderId(robotId);
-                        assistantMessage.setReceiverId(userId);
-                        assistantMessage.setMessageType("TEXT");
-                        assistantMessage.setContent(fullResponse.toString());
-
-                        assistantMessage = messageFeignClient.addPrivateMessage(assistantMessage);
-
-                        messageFeignClient.addStatus(new MessageStatusDTO(assistantMessage.getId(), assistantMessage.getReceiverId()));
-                        messageFeignClient.addStatusAndRead(new MessageStatusDTO(assistantMessage.getId(), assistantMessage.getSenderId()));
-
-                        // 增加消息计数
-                        userAiConfigMapper.increaseMessageCount(robotId);
-                        //增加token使用
-                        userAiConfigMapper.increaseTokenCount(robotId,aiUtil.estimateTokenCount(fullResponse.toString()));
-
-                        // 更新摘要与记忆
-                        List<Message> summarySource = new ArrayList<>(historyMessages == null ? List.of() : historyMessages);
-                        if (summarySource.stream().noneMatch(message -> Objects.equals(message.getId(), userMessage.getId()))) {
-                            summarySource.add(userMessage);
-                        }
-                        summarySource.add(assistantMessage);
-                        aiContextService.updateSummaryIfNeeded(userId, robotId, summarySource, summaryTriggerSize, windowSize, assistantMessage.getId());
-                        aiContextService.upsertMemory(userId, robotId, userMessage.getContent());
-
-                        // 通过 WebSocket 将 AI 回复推送给用户和AI自己
-                        MessageVO aiMessageVO = new MessageVO(messageFeignClient.getById(assistantMessage.getId()), messageFeignClient.getStatus(new MessageStatusDTO(assistantMessage.getId(), userId)));
-                        webSocketFeignClient.sendMessageToUser(new WsSendPrivateMessageDTO(userId, aiMessageVO));
-                        aiMessageVO.setIsRead(messageFeignClient.getStatus(new MessageStatusDTO(assistantMessage.getId(), robotId)));
-                        webSocketFeignClient.sendMessageToUser(new WsSendPrivateMessageDTO(robotId, aiMessageVO));
-
-                        // 发送完成信号到 SSE
                         emitter.send(SseEmitter.event()
                                 .data("[DONE]")
                                 .name("done"));
-                        emitter.complete();
-
-                        // 清理taskId
-                        if (userTasksMap.containsKey(userId)) {
-                            userTasksMap.get(userId).remove(taskId);
-                            if (userTasksMap.get(userId).isEmpty()) {
-                                userTasksMap.remove(userId);
-                            }
-                        }
                     } catch (Exception e) {
-                        emitter.completeWithError(e);
+                        log.debug("SSE 发送 DONE 失败（客户端可能已断开）: {}", e.getMessage());
+                    }
+                    try {
+                        emitter.complete();
+                    } catch (Exception e) {
+                        log.debug("SSE complete 失败: {}", e.getMessage());
+                    }
+                    try {
+                        persistAssistantReply(userId, robotId, userMessage, historyMessages,
+                                summaryTriggerSize, windowSize, fullResponse.toString());
+                    } catch (Exception e) {
+                        log.error("AI 流式结束后持久化失败 userId={} robotId={}", userId, robotId, e);
                     }
                 })
                 .doOnError(error -> {
@@ -238,6 +210,41 @@ public class AiService {
         });
 
         return emitter;
+    }
+
+    /**
+     * 模型流结束后执行：落库、计数、摘要/记忆与 WebSocket 推送（已与 SSE 解耦，避免前端长时间等待）。
+     */
+    private void persistAssistantReply(Long userId, Long robotId, Message userMessage,
+                                       List<Message> historyMessages, int summaryTriggerSize, int windowSize,
+                                       String fullResponseText) {
+        Message assistantMessage = new Message();
+        assistantMessage.setSenderId(robotId);
+        assistantMessage.setReceiverId(userId);
+        assistantMessage.setMessageType("TEXT");
+        assistantMessage.setContent(fullResponseText);
+
+        assistantMessage = messageFeignClient.addPrivateMessage(assistantMessage);
+
+        messageFeignClient.addStatus(new MessageStatusDTO(assistantMessage.getId(), assistantMessage.getReceiverId()));
+        messageFeignClient.addStatusAndRead(new MessageStatusDTO(assistantMessage.getId(), assistantMessage.getSenderId()));
+
+        userAiConfigMapper.increaseMessageCount(robotId);
+        userAiConfigMapper.increaseTokenCount(robotId, aiUtil.estimateTokenCount(fullResponseText));
+
+        List<Message> summarySource = new ArrayList<>(historyMessages == null ? List.of() : historyMessages);
+        if (summarySource.stream().noneMatch(message -> Objects.equals(message.getId(), userMessage.getId()))) {
+            summarySource.add(userMessage);
+        }
+        summarySource.add(assistantMessage);
+        aiContextService.updateSummaryIfNeeded(userId, robotId, summarySource, summaryTriggerSize, windowSize, assistantMessage.getId());
+        aiContextService.upsertMemory(userId, robotId, userMessage.getContent());
+
+        MessageVO aiMessageVO = new MessageVO(messageFeignClient.getById(assistantMessage.getId()),
+                messageFeignClient.getStatus(new MessageStatusDTO(assistantMessage.getId(), userId)));
+        webSocketFeignClient.sendMessageToUser(new WsSendPrivateMessageDTO(userId, aiMessageVO));
+        aiMessageVO.setIsRead(messageFeignClient.getStatus(new MessageStatusDTO(assistantMessage.getId(), robotId)));
+        webSocketFeignClient.sendMessageToUser(new WsSendPrivateMessageDTO(robotId, aiMessageVO));
     }
 
     private int resolvePositiveOrDefault(Integer value, int defaultValue) {
