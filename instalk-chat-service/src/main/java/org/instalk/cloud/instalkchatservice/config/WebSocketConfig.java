@@ -20,7 +20,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        // 浏览器页面与网关/服务往往不同源（如 Vite :5173 → 网关 :10010），不放开 Origin 时握手会被拒绝为 403
         registry.addHandler(webSocketHandler, "/ws")
-                .addInterceptors(webSocketAuthInterceptor);
+                .addInterceptors(webSocketAuthInterceptor)
+                .setAllowedOriginPatterns("*");
     }
 }

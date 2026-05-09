@@ -44,8 +44,7 @@ CREATE TABLE IF NOT EXISTS ai_memory (
     robot_id BIGINT NOT NULL,
     type VARCHAR(16) DEFAULT 'FACT',
     content TEXT NOT NULL,
-    embedding_json JSONB NULL,
-    embedding VECTOR(1536),
+    embedding VECTOR(1024),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

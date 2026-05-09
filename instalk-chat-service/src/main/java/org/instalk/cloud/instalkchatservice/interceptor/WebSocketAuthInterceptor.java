@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @Slf4j
@@ -50,7 +52,12 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
         String[] params = query.split("&");
         for (String param : params) {
             if (param.startsWith("token=")) {
-                return param.substring(6);
+                String raw = param.substring(6);
+                try {
+                    return URLDecoder.decode(raw, StandardCharsets.UTF_8);
+                } catch (Exception e) {
+                    return raw;
+                }
             }
         }
         return null;

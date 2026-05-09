@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS ai_memory (
     robot_id BIGINT NOT NULL,
     type VARCHAR(16) DEFAULT 'FACT',
     content TEXT NOT NULL,
-    embedding_json JSONB NULL,
-    embedding VECTOR(1536),
+    embedding VECTOR(1024),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_ai_memory_user_robot ON ai_memory(user_id, robot_id);
+CREATE INDEX IF NOT EXISTS idx_ai_memory_embedding ON ai_memory USING ivfflat (embedding vector_cosine_ops);

@@ -28,12 +28,11 @@ public interface AiMemoryMapper {
                                         @Param("embeddingVector") String embeddingVector,
                                         @Param("limit") int limit);
 
-    @Insert("INSERT INTO ai_memory (user_id, robot_id, type, content, embedding_json, embedding) " +
-            "VALUES (#{userId}, #{robotId}, #{type}, #{content}, CAST(#{embeddingJson} AS jsonb), CAST(#{embeddingVector} AS vector))")
+    @Insert("INSERT INTO ai_memory (user_id, robot_id, type, content, embedding) " +
+            "VALUES (#{userId}, #{robotId}, #{type}, #{content}, CAST(#{embeddingVector} AS vector))")
     void insert(@Param("userId") Long userId,
                 @Param("robotId") Long robotId,
                 @Param("type") String type,
                 @Param("content") String content,
-                @Param("embeddingJson") String embeddingJson,
                 @Param("embeddingVector") String embeddingVector);
 }

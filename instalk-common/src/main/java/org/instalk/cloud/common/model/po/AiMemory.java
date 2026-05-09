@@ -11,6 +11,5 @@ public class AiMemory {
     private Long robotId;
     private String type;
     private String content;
-    private String embeddingJson;
     private LocalDateTime createdAt;
 }

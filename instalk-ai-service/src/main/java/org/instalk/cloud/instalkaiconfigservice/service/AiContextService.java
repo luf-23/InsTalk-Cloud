@@ -124,15 +124,15 @@ public class AiContextService {
             return;
         }
         List<Double> embedding = embeddingService.embed(content);
-        String embeddingJson = null;
+        String embeddingVector = null;
         if (embedding != null && !embedding.isEmpty()) {
             try {
-                embeddingJson = objectMapper.writeValueAsString(embedding);
+                embeddingVector = objectMapper.writeValueAsString(embedding);
             } catch (Exception ignored) {
-                embeddingJson = null;
+                embeddingVector = null;
             }
         }
-        aiMemoryMapper.insert(userId, robotId, "FACT", content.trim(), embeddingJson, embeddingJson);
+        aiMemoryMapper.insert(userId, robotId, "FACT", content.trim(), embeddingVector);
     }
 
     private List<AiMemory> fetchRagMemories(Long userId, Long robotId, String query, int ragTopK) {
