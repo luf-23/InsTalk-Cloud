@@ -1,4 +1,4 @@
-package org.instalk.cloud.instalkaiconfigservice.config;
+package org.instalk.cloud.instalkaiservice.config;
 
 import org.instalk.cloud.common.interceptor.UserContextInterceptor;
 import org.springframework.context.annotation.Bean;

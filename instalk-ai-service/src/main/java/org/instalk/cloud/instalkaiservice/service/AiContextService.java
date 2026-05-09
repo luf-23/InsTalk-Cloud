@@ -1,14 +1,13 @@
-package org.instalk.cloud.instalkaiconfigservice.service;
+package org.instalk.cloud.instalkaiservice.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.instalk.cloud.instalkaiservice.llm.EmbeddingVectorClient;
+import org.instalk.cloud.instalkaiservice.mapper.AiChatSummaryMapper;
+import org.instalk.cloud.instalkaiservice.mapper.AiMemoryMapper;
 import org.instalk.cloud.common.model.dto.AiChatDTO;
 import org.instalk.cloud.common.model.po.AiChatSummary;
 import org.instalk.cloud.common.model.po.AiMemory;
 import org.instalk.cloud.common.model.po.Message;
-import org.instalk.cloud.instalkaiconfigservice.mapper.AiChatSummaryMapper;
-import org.instalk.cloud.instalkaiconfigservice.mapper.AiMemoryMapper;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.instalk.cloud.instalkaiconfigservice.util.AiUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -26,19 +25,21 @@ public class AiContextService {
     public static final int DEFAULT_RAG_TOP_K = 6;
     public static final int DEFAULT_MAX_MEMORY_ITEMS = 200;
 
-    @Autowired
-    private AiChatSummaryMapper aiChatSummaryMapper;
-
-    @Autowired
-    private AiMemoryMapper aiMemoryMapper;
-
-    @Autowired
-    private AiUtil aiUtil;
-
-    @Autowired
-    private EmbeddingService embeddingService;
-
+    private final AiChatSummaryMapper aiChatSummaryMapper;
+    private final AiMemoryMapper aiMemoryMapper;
+    private final AiUsagePolicy aiUsagePolicy;
+    private final EmbeddingVectorClient embeddingVectorClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public AiContextService(AiChatSummaryMapper aiChatSummaryMapper,
+                            AiMemoryMapper aiMemoryMapper,
+                            AiUsagePolicy aiUsagePolicy,
+                            EmbeddingVectorClient embeddingVectorClient) {
+        this.aiChatSummaryMapper = aiChatSummaryMapper;
+        this.aiMemoryMapper = aiMemoryMapper;
+        this.aiUsagePolicy = aiUsagePolicy;
+        this.embeddingVectorClient = embeddingVectorClient;
+    }
 
     public List<AiChatDTO.AiChatMessage> buildContext(Long userId,
                                                       Long robotId,
@@ -111,7 +112,7 @@ public class AiContextService {
             return;
         }
 
-        String summaryText = aiUtil.buildSimpleSummary(sorted.subList(0, compactCount), userId);
+        String summaryText = aiUsagePolicy.buildSimpleSummary(sorted.subList(0, compactCount), userId);
         if (summaryText.isBlank()) {
             return;
         }
@@ -123,7 +124,7 @@ public class AiContextService {
         if (content == null || content.isBlank()) {
             return;
         }
-        List<Double> embedding = embeddingService.embed(content);
+        List<Double> embedding = embeddingVectorClient.embed(content);
         String embeddingVector = null;
         if (embedding != null && !embedding.isEmpty()) {
             try {
@@ -141,7 +142,7 @@ public class AiContextService {
             return distinctMemories(aiMemoryMapper.selectLatest(userId, robotId, DEFAULT_MAX_MEMORY_ITEMS), ragTopK);
         }
 
-        List<Double> queryEmbedding = embeddingService.embed(normalizedQuery);
+        List<Double> queryEmbedding = embeddingVectorClient.embed(normalizedQuery);
         if (queryEmbedding == null || queryEmbedding.isEmpty()) {
             return distinctMemories(aiMemoryMapper.selectLatest(userId, robotId, DEFAULT_MAX_MEMORY_ITEMS), ragTopK);
         }
@@ -175,5 +176,4 @@ public class AiContextService {
         }
         return result;
     }
-
 }

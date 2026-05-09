@@ -1,4 +1,4 @@
-package org.instalk.cloud.instalkaiconfigservice.mapper;
+package org.instalk.cloud.instalkaiservice.mapper;
 
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;

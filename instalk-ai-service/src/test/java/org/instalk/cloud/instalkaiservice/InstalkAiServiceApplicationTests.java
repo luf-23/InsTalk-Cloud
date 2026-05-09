@@ -1,13 +1,12 @@
-package org.instalk.cloud.instalkaiconfigservice;
+package org.instalk.cloud.instalkaiservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class InstalkAiconfigServiceApplicationTests {
+class InstalkAiServiceApplicationTests {
 
     @Test
     void contextLoads() {
     }
-
 }

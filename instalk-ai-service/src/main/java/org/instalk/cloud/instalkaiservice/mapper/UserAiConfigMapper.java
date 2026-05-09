@@ -1,4 +1,4 @@
-package org.instalk.cloud.instalkaiconfigservice.mapper;
+package org.instalk.cloud.instalkaiservice.mapper;
 
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -11,7 +11,6 @@ public interface UserAiConfigMapper {
 
     @Insert("insert into user_ai_config (user_id,robot_id) values (#{userId},#{robotId})")
     void add(Long userId, Long robotId);
-
 
     @Select("SELECT * FROM user_ai_config WHERE robot_id = #{robotId}")
     UserAiConfig select(Long robotId);
