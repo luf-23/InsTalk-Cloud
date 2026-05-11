@@ -36,12 +36,12 @@ CREATE TABLE IF NOT EXISTS ai_chat_summary (
     CONSTRAINT unique_user_robot UNIQUE (user_id, robot_id)
 );
 
--- AI记忆表
+-- AI记忆表（类型约束直接写在列上）
 CREATE TABLE IF NOT EXISTS ai_memory (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     robot_id BIGINT NOT NULL,
-    type VARCHAR(16) DEFAULT 'FACT',
+    type VARCHAR(16) NOT NULL DEFAULT 'FACT' CHECK (type IN ('FACT', 'PREFERENCE', 'EVENT')),
     content TEXT NOT NULL,
     embedding VECTOR(1024),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

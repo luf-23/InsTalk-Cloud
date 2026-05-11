@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.instalk.cloud.common.model.enums.AiMemoryType;
 import org.instalk.cloud.common.model.po.AiMemory;
 
 import java.util.List;
@@ -32,7 +33,7 @@ public interface AiMemoryMapper {
             "VALUES (#{userId}, #{robotId}, #{type}, #{content}, CAST(#{embeddingVector} AS vector))")
     void insert(@Param("userId") Long userId,
                 @Param("robotId") Long robotId,
-                @Param("type") String type,
+                @Param("type") AiMemoryType type,
                 @Param("content") String content,
                 @Param("embeddingVector") String embeddingVector);
 }

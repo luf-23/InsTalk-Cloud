@@ -1,7 +1,9 @@
 package org.instalk.cloud.instalkaiservice.config;
 
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -24,6 +26,18 @@ public class LangChainAiConfig {
                 .modelName(FALLBACK_CHAT_MODEL)
                 .returnThinking(true)
                 .timeout(Duration.ofMinutes(5))
+                .logRequests(false)
+                .logResponses(false)
+                .build();
+    }
+
+    @Bean
+    public ChatModel chatModel(AiProviderProperties props) {
+        return OpenAiChatModel.builder()
+                .baseUrl(props.chatBaseUrl())
+                .apiKey(props.getKey())
+                .modelName(FALLBACK_CHAT_MODEL)
+                .timeout(Duration.ofMinutes(2))
                 .logRequests(false)
                 .logResponses(false)
                 .build();

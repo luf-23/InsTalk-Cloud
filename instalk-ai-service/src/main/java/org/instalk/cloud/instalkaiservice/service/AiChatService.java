@@ -1,13 +1,19 @@
 package org.instalk.cloud.instalkaiservice.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.PartialThinking;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import lombok.extern.slf4j.Slf4j;
+import org.instalk.cloud.instalkaiservice.llm.AiMemoryTools;
 import org.instalk.cloud.instalkaiservice.llm.InstalkChatMessages;
 import org.instalk.cloud.instalkaiservice.llm.UserAiChatRequestFactory;
 import org.instalk.cloud.instalkaiservice.mapper.UserAiConfigMapper;
@@ -37,12 +43,16 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
 public class AiChatService {
 
+    private static final int MAX_MODEL_INVOCATIONS_WITH_TOOLS = 10;
+
     private final Map<Long, Set<String>> userTasksMap = new HashMap<>();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     private StreamingChatModel streamingChatModel;
@@ -61,6 +71,9 @@ public class AiChatService {
 
     @Autowired
     private AiContextService aiContextService;
+
+    @Autowired
+    private AiMemoryExtractionService aiMemoryExtractionService;
 
     @Autowired
     private UserAiChatRequestFactory userAiChatRequestFactory;
@@ -107,9 +120,7 @@ public class AiChatService {
 
         int windowSize = resolvePositiveOrDefault(aiChatDTO.getWindowSize(), AiContextService.DEFAULT_WINDOW_SIZE);
         int summaryTriggerSize = resolvePositiveOrDefault(aiChatDTO.getSummaryTriggerSize(), AiContextService.DEFAULT_SUMMARY_TRIGGER_SIZE);
-        int ragTopK = resolvePositiveOrDefault(aiChatDTO.getRagTopK(), AiContextService.DEFAULT_RAG_TOP_K);
         boolean includeSummary = aiChatDTO.getIncludeSummary() == null || aiChatDTO.getIncludeSummary();
-        boolean includeRag = aiChatDTO.getIncludeRag() == null || aiChatDTO.getIncludeRag();
 
         int historyLimit = Math.max(windowSize, summaryTriggerSize);
 
@@ -119,11 +130,8 @@ public class AiChatService {
                 userId,
                 robotId,
                 historyMessages,
-                userMessage.getContent(),
                 windowSize,
-                ragTopK,
-                includeSummary,
-                includeRag
+                includeSummary
         );
 
         MessageVO messageVO = new MessageVO(userMessage, false);
@@ -133,11 +141,74 @@ public class AiChatService {
         if (userAiConfig.getSystemPrompt() != null && !userAiConfig.getSystemPrompt().isBlank()) {
             lcMessages.add(SystemMessage.from(userAiConfig.getSystemPrompt()));
         }
+        lcMessages.add(SystemMessage.from(
+                "按需使用工具 search_memories：仅当回答依赖用户过往事实、偏好或事件时再检索；泛泛寒暄或无需个人上下文时不要调用。"));
         lcMessages.addAll(InstalkChatMessages.forChatCompletion(contextMessages, userMessage.getContent()));
 
-        ChatRequest chatRequest = userAiChatRequestFactory.chatRequest(lcMessages, userAiConfig);
+        StringBuilder assistantVisibleText = new StringBuilder();
+        AtomicInteger modelInvocationCount = new AtomicInteger(0);
 
-        StringBuilder fullResponse = new StringBuilder();
+        streamChatWithMemoryTools(
+                userId,
+                robotId,
+                taskId,
+                userAiConfig,
+                lcMessages,
+                emitter,
+                assistantVisibleText,
+                modelInvocationCount,
+                () -> {
+                    try {
+                        emitter.send(SseEmitter.event()
+                                .data("[DONE]")
+                                .name("done"));
+                    } catch (Exception e) {
+                        log.debug("SSE 发送 DONE 失败（客户端可能已断开）: {}", e.getMessage());
+                    }
+                    try {
+                        emitter.complete();
+                    } catch (Exception e) {
+                        log.debug("SSE complete 失败: {}", e.getMessage());
+                    }
+                    CompletableFuture.runAsync(() -> persistAssistantReply(userId, robotId, userMessage, historyMessages,
+                            summaryTriggerSize, windowSize, assistantVisibleText.toString()), ForkJoinPool.commonPool());
+                },
+                error -> {
+                    emitter.completeWithError(error);
+                    cleanupTask(userId, taskId);
+                }
+        );
+
+        emitter.onTimeout(() -> {
+            emitter.complete();
+            cleanupTask(userId, taskId);
+        });
+
+        emitter.onCompletion(() -> cleanupTask(userId, taskId));
+
+        return emitter;
+    }
+
+    private ChatRequest chatRequestWithTools(List<ChatMessage> lcMessages, UserAiConfig userAiConfig) {
+        return userAiChatRequestFactory.chatRequest(lcMessages, userAiConfig, AiMemoryTools.all());
+    }
+
+    private void streamChatWithMemoryTools(Long userId,
+                                           Long robotId,
+                                           String taskId,
+                                           UserAiConfig userAiConfig,
+                                           List<ChatMessage> lcMessages,
+                                           SseEmitter emitter,
+                                           StringBuilder assistantVisibleText,
+                                           AtomicInteger modelInvocationCount,
+                                           Runnable onFinishedSuccess,
+                                           java.util.function.Consumer<Throwable> onFatalError) {
+        if (modelInvocationCount.incrementAndGet() > MAX_MODEL_INVOCATIONS_WITH_TOOLS) {
+            onFatalError.accept(new RuntimeException("工具调用轮次过多"));
+            return;
+        }
+
+        ChatRequest chatRequest = chatRequestWithTools(lcMessages, userAiConfig);
 
         streamingChatModel.chat(chatRequest, new StreamingChatResponseHandler() {
 
@@ -146,7 +217,7 @@ public class AiChatService {
                 if (partialResponse == null || partialResponse.isEmpty()) {
                     return;
                 }
-                fullResponse.append(partialResponse);
+                assistantVisibleText.append(partialResponse);
                 try {
                     emitter.send(SseEmitter.event()
                             .data(partialResponse.replace("\n", "\\n"))
@@ -165,7 +236,6 @@ public class AiChatService {
                 if (text == null || text.isEmpty()) {
                     return;
                 }
-                fullResponse.append(text);
                 try {
                     emitter.send(SseEmitter.event()
                             .data(text.replace("\n", "\\n"))
@@ -177,37 +247,46 @@ public class AiChatService {
 
             @Override
             public void onCompleteResponse(ChatResponse completeResponse) {
-                try {
-                    emitter.send(SseEmitter.event()
-                            .data("[DONE]")
-                            .name("done"));
-                } catch (Exception e) {
-                    log.debug("SSE 发送 DONE 失败（客户端可能已断开）: {}", e.getMessage());
+                AiMessage aiMessage = completeResponse.aiMessage();
+                if (aiMessage != null && aiMessage.hasToolExecutionRequests()) {
+                    lcMessages.add(aiMessage);
+                    for (Object o : aiMessage.toolExecutionRequests()) {
+                        if (!(o instanceof ToolExecutionRequest req)) {
+                            continue;
+                        }
+                        String toolResult = executeMemoryTool(userId, robotId, req);
+                        lcMessages.add(ToolExecutionResultMessage.from(req, toolResult));
+                    }
+                    streamChatWithMemoryTools(userId, robotId, taskId, userAiConfig, lcMessages, emitter,
+                            assistantVisibleText, modelInvocationCount, onFinishedSuccess, onFatalError);
+                    return;
                 }
-                try {
-                    emitter.complete();
-                } catch (Exception e) {
-                    log.debug("SSE complete 失败: {}", e.getMessage());
-                }
-                CompletableFuture.runAsync(() -> persistAssistantReply(userId, robotId, userMessage, historyMessages,
-                        summaryTriggerSize, windowSize, fullResponse.toString()), ForkJoinPool.commonPool());
+                onFinishedSuccess.run();
             }
 
             @Override
             public void onError(Throwable error) {
-                emitter.completeWithError(error);
-                cleanupTask(userId, taskId);
+                onFatalError.accept(error);
             }
         });
+    }
 
-        emitter.onTimeout(() -> {
-            emitter.complete();
-            cleanupTask(userId, taskId);
-        });
-
-        emitter.onCompletion(() -> cleanupTask(userId, taskId));
-
-        return emitter;
+    private String executeMemoryTool(Long userId, Long robotId, ToolExecutionRequest request) {
+        if (!AiMemoryTools.SEARCH_MEMORIES.name().equals(request.name())) {
+            return "未知工具";
+        }
+        try {
+            JsonNode args = objectMapper.readTree(request.arguments() == null ? "{}" : request.arguments());
+            String query = args.hasNonNull("query") ? args.get("query").asText("") : "";
+            int limit = AiContextService.DEFAULT_RAG_TOP_K;
+            if (args.hasNonNull("limit") && args.get("limit").canConvertToInt()) {
+                limit = args.get("limit").asInt();
+            }
+            return aiContextService.searchMemoriesForTool(userId, robotId, query, limit);
+        } catch (Exception e) {
+            log.debug("search_memories 参数解析失败", e);
+            return "(参数解析失败)";
+        }
     }
 
     private void cleanupTask(Long userId, String taskId) {
@@ -223,13 +302,13 @@ public class AiChatService {
 
     private void persistAssistantReply(Long userId, Long robotId, Message userMessage,
                                        List<Message> historyMessages, int summaryTriggerSize, int windowSize,
-                                       String fullResponseText) {
+                                       String assistantPlainText) {
         try {
             Message assistantMessage = new Message();
             assistantMessage.setSenderId(robotId);
             assistantMessage.setReceiverId(userId);
             assistantMessage.setMessageType("TEXT");
-            assistantMessage.setContent(fullResponseText);
+            assistantMessage.setContent(assistantPlainText);
 
             assistantMessage = messageFeignClient.addPrivateMessage(assistantMessage);
 
@@ -237,7 +316,7 @@ public class AiChatService {
             messageFeignClient.addStatusAndRead(new MessageStatusDTO(assistantMessage.getId(), assistantMessage.getSenderId()));
 
             userAiConfigMapper.increaseMessageCount(robotId);
-            userAiConfigMapper.increaseTokenCount(robotId, aiUsagePolicy.estimateTokenCount(fullResponseText));
+            userAiConfigMapper.increaseTokenCount(robotId, aiUsagePolicy.estimateTokenCount(assistantPlainText));
 
             List<Message> summarySource = new ArrayList<>(historyMessages == null ? List.of() : historyMessages);
             if (summarySource.stream().noneMatch(message -> Objects.equals(message.getId(), userMessage.getId()))) {
@@ -245,7 +324,7 @@ public class AiChatService {
             }
             summarySource.add(assistantMessage);
             aiContextService.updateSummaryIfNeeded(userId, robotId, summarySource, summaryTriggerSize, windowSize, assistantMessage.getId());
-            aiContextService.upsertMemory(userId, robotId, userMessage.getContent());
+            aiMemoryExtractionService.extractAndPersist(userId, robotId, userMessage.getContent(), assistantPlainText);
 
             MessageVO aiMessageVO = new MessageVO(messageFeignClient.getById(assistantMessage.getId()),
                     messageFeignClient.getStatus(new MessageStatusDTO(assistantMessage.getId(), userId)));

@@ -1,6 +1,7 @@
 package org.instalk.cloud.common.model.po;
 
 import lombok.Data;
+import org.instalk.cloud.common.model.enums.AiMemoryType;
 
 import java.time.LocalDateTime;
 
@@ -9,7 +10,7 @@ public class AiMemory {
     private Long id;
     private Long userId;
     private Long robotId;
-    private String type;
+    private AiMemoryType type;
     private String content;
     private LocalDateTime createdAt;
 }

@@ -5,6 +5,7 @@ import org.instalk.cloud.instalkaiservice.llm.EmbeddingVectorClient;
 import org.instalk.cloud.instalkaiservice.mapper.AiChatSummaryMapper;
 import org.instalk.cloud.instalkaiservice.mapper.AiMemoryMapper;
 import org.instalk.cloud.common.model.dto.AiChatDTO;
+import org.instalk.cloud.common.model.enums.AiMemoryType;
 import org.instalk.cloud.common.model.po.AiChatSummary;
 import org.instalk.cloud.common.model.po.AiMemory;
 import org.instalk.cloud.common.model.po.Message;
@@ -40,14 +41,15 @@ public class AiContextService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Builds LLM-visible context: optional rolling summary + recent message window.
+     * Memory retrieval is delegated to the {@code search_memories} tool during chat.
+     */
     public List<AiChatDTO.AiChatMessage> buildContext(Long userId,
                                                       Long robotId,
                                                       List<Message> historyMessages,
-                                                      String userMessage,
                                                       int windowSize,
-                                                      int ragTopK,
-                                                      boolean includeSummary,
-                                                      boolean includeRag) {
+                                                      boolean includeSummary) {
         List<AiChatDTO.AiChatMessage> result = new ArrayList<>();
 
         if (includeSummary) {
@@ -57,19 +59,6 @@ public class AiContextService {
                 summaryMessage.setRole("system");
                 summaryMessage.setContent("对话摘要:\n" + summary.getSummary());
                 result.add(summaryMessage);
-            }
-        }
-
-        if (includeRag) {
-            List<AiMemory> memories = fetchRagMemories(userId, robotId, userMessage, ragTopK);
-            if (!memories.isEmpty()) {
-                String memoryText = memories.stream()
-                        .map(mem -> "- " + mem.getContent())
-                        .collect(Collectors.joining("\n"));
-                AiChatDTO.AiChatMessage ragMessage = new AiChatDTO.AiChatMessage();
-                ragMessage.setRole("system");
-                ragMessage.setContent("相关记忆:\n" + memoryText);
-                result.add(ragMessage);
             }
         }
 
@@ -119,10 +108,14 @@ public class AiContextService {
         aiChatSummaryMapper.upsert(userId, robotId, summaryText, currentMessageId);
     }
 
-    public void upsertMemory(Long userId, Long robotId, String content) {
+    /**
+     * Persists one classified memory row with embedding (insert-only).
+     */
+    public void insertMemory(Long userId, Long robotId, AiMemoryType type, String content) {
         if (content == null || content.isBlank()) {
             return;
         }
+        AiMemoryType resolved = type != null ? type : AiMemoryType.FACT;
         List<Double> embedding = embeddingVectorClient.embed(content);
         String embeddingVector = null;
         if (embedding != null && !embedding.isEmpty()) {
@@ -132,7 +125,21 @@ public class AiContextService {
                 embeddingVector = null;
             }
         }
-        aiMemoryMapper.insert(userId, robotId, "FACT", content.trim(), embeddingVector);
+        aiMemoryMapper.insert(userId, robotId, resolved, content.trim(), embeddingVector);
+    }
+
+    /**
+     * Tool result payload for the LLM (plain text lines).
+     */
+    public String searchMemoriesForTool(Long userId, Long robotId, String query, int limit) {
+        int cap = limit > 0 ? Math.min(limit, 20) : DEFAULT_RAG_TOP_K;
+        List<AiMemory> memories = fetchRagMemories(userId, robotId, query, cap);
+        if (memories.isEmpty()) {
+            return "(无相关记忆)";
+        }
+        return memories.stream()
+                .map(mem -> "[" + mem.getType().name() + "] " + mem.getContent())
+                .collect(Collectors.joining("\n"));
     }
 
     private List<AiMemory> fetchRagMemories(Long userId, Long robotId, String query, int ragTopK) {
