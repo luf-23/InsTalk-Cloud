@@ -10,6 +10,7 @@ import org.instalk.cloud.common.model.po.Friendship;
 import org.instalk.cloud.common.model.vo.Result;
 import org.instalk.cloud.common.model.vo.UserAiConfigVO;
 import org.instalk.cloud.common.util.ThreadLocalUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,17 +23,14 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequestMapping("/ai")
 public class FrontController {
 
-    private final AiChatService aiChatService;
-    private final UserAiConfigMapper userAiConfigMapper;
-    private final FriendshipFeignClient friendshipFeignClient;
+    @Autowired
+    private AiChatService aiChatService;
 
-    public FrontController(AiChatService aiChatService,
-                           UserAiConfigMapper userAiConfigMapper,
-                           FriendshipFeignClient friendshipFeignClient) {
-        this.aiChatService = aiChatService;
-        this.userAiConfigMapper = userAiConfigMapper;
-        this.friendshipFeignClient = friendshipFeignClient;
-    }
+    @Autowired
+    private UserAiConfigMapper userAiConfigMapper;
+
+    @Autowired
+    private FriendshipFeignClient friendshipFeignClient;
 
     @GetMapping("/credential")
     public Result<String> getCredential() {

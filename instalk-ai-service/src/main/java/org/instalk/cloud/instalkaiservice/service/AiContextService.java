@@ -8,6 +8,7 @@ import org.instalk.cloud.common.model.dto.AiChatDTO;
 import org.instalk.cloud.common.model.po.AiChatSummary;
 import org.instalk.cloud.common.model.po.AiMemory;
 import org.instalk.cloud.common.model.po.Message;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -25,21 +26,19 @@ public class AiContextService {
     public static final int DEFAULT_RAG_TOP_K = 6;
     public static final int DEFAULT_MAX_MEMORY_ITEMS = 200;
 
-    private final AiChatSummaryMapper aiChatSummaryMapper;
-    private final AiMemoryMapper aiMemoryMapper;
-    private final AiUsagePolicy aiUsagePolicy;
-    private final EmbeddingVectorClient embeddingVectorClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    private AiChatSummaryMapper aiChatSummaryMapper;
 
-    public AiContextService(AiChatSummaryMapper aiChatSummaryMapper,
-                            AiMemoryMapper aiMemoryMapper,
-                            AiUsagePolicy aiUsagePolicy,
-                            EmbeddingVectorClient embeddingVectorClient) {
-        this.aiChatSummaryMapper = aiChatSummaryMapper;
-        this.aiMemoryMapper = aiMemoryMapper;
-        this.aiUsagePolicy = aiUsagePolicy;
-        this.embeddingVectorClient = embeddingVectorClient;
-    }
+    @Autowired
+    private AiMemoryMapper aiMemoryMapper;
+
+    @Autowired
+    private AiUsagePolicy aiUsagePolicy;
+
+    @Autowired
+    private EmbeddingVectorClient embeddingVectorClient;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public List<AiChatDTO.AiChatMessage> buildContext(Long userId,
                                                       Long robotId,

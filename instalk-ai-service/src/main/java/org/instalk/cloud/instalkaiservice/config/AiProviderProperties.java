@@ -1,7 +1,9 @@
 package org.instalk.cloud.instalkaiservice.config;
 
+import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+@Data
 @ConfigurationProperties(prefix = "ai")
 public class AiProviderProperties {
 
@@ -9,39 +11,6 @@ public class AiProviderProperties {
     private String url;
     private String embeddingUrl;
     private String embeddingModel;
-
-    public String getKey() {
-        return key;
-    }
-
-    public void setKey(String key) {
-        this.key = key;
-    }
-
-    public String getUrl() {
-        return url;
-    }
-
-    public void setUrl(String url) {
-        this.url = url;
-    }
-
-    public String getEmbeddingUrl() {
-        return embeddingUrl;
-    }
-
-    public void setEmbeddingUrl(String embeddingUrl) {
-        this.embeddingUrl = embeddingUrl;
-    }
-
-    public String getEmbeddingModel() {
-        return embeddingModel;
-    }
-
-    public void setEmbeddingModel(String embeddingModel) {
-        this.embeddingModel = embeddingModel;
-    }
-
     public String chatBaseUrl() {
         return stripLastPathSegment(url);
     }

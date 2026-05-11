@@ -3,6 +3,7 @@ package org.instalk.cloud.instalkaiservice.controller;
 import org.instalk.cloud.instalkaiservice.service.UserAiConfigService;
 import org.instalk.cloud.common.feign.api.AiAPI;
 import org.instalk.cloud.common.model.dto.internal.AiConfigDTO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,11 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/internal/ai")
 public class InternalController implements AiAPI {
 
-    private final UserAiConfigService userAiConfigService;
-
-    public InternalController(UserAiConfigService userAiConfigService) {
-        this.userAiConfigService = userAiConfigService;
-    }
+    @Autowired
+    private UserAiConfigService userAiConfigService;
 
     @Override
     public void add(@RequestBody AiConfigDTO aiConfigDTO) {

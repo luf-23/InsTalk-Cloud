@@ -23,6 +23,7 @@ import org.instalk.cloud.common.model.vo.MessageVO;
 import org.instalk.cloud.common.model.vo.Result;
 import org.instalk.cloud.common.model.vo.UserAiConfigVO;
 import org.instalk.cloud.common.util.ThreadLocalUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -43,29 +44,26 @@ public class AiChatService {
 
     private final Map<Long, Set<String>> userTasksMap = new HashMap<>();
 
-    private final StreamingChatModel streamingChatModel;
-    private final UserAiConfigMapper userAiConfigMapper;
-    private final AiUsagePolicy aiUsagePolicy;
-    private final MessageFeignClient messageFeignClient;
-    private final WebSocketFeignClient webSocketFeignClient;
-    private final AiContextService aiContextService;
-    private final UserAiChatRequestFactory userAiChatRequestFactory;
+    @Autowired
+    private StreamingChatModel streamingChatModel;
 
-    public AiChatService(StreamingChatModel streamingChatModel,
-                         UserAiConfigMapper userAiConfigMapper,
-                         AiUsagePolicy aiUsagePolicy,
-                         MessageFeignClient messageFeignClient,
-                         WebSocketFeignClient webSocketFeignClient,
-                         AiContextService aiContextService,
-                         UserAiChatRequestFactory userAiChatRequestFactory) {
-        this.streamingChatModel = streamingChatModel;
-        this.userAiConfigMapper = userAiConfigMapper;
-        this.aiUsagePolicy = aiUsagePolicy;
-        this.messageFeignClient = messageFeignClient;
-        this.webSocketFeignClient = webSocketFeignClient;
-        this.aiContextService = aiContextService;
-        this.userAiChatRequestFactory = userAiChatRequestFactory;
-    }
+    @Autowired
+    private UserAiConfigMapper userAiConfigMapper;
+
+    @Autowired
+    private AiUsagePolicy aiUsagePolicy;
+
+    @Autowired
+    private MessageFeignClient messageFeignClient;
+
+    @Autowired
+    private WebSocketFeignClient webSocketFeignClient;
+
+    @Autowired
+    private AiContextService aiContextService;
+
+    @Autowired
+    private UserAiChatRequestFactory userAiChatRequestFactory;
 
     public Result<String> getCredential() {
         String taskId = UUID.randomUUID().toString().replace("-", "");

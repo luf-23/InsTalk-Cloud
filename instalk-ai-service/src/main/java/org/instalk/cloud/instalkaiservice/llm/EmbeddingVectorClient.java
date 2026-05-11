@@ -4,6 +4,7 @@ import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -12,11 +13,8 @@ import java.util.List;
 @Service
 public class EmbeddingVectorClient {
 
-    private final EmbeddingModel embeddingModel;
-
-    public EmbeddingVectorClient(EmbeddingModel embeddingModel) {
-        this.embeddingModel = embeddingModel;
-    }
+    @Autowired
+    private EmbeddingModel embeddingModel;
 
     public List<Double> embed(String input) {
         if (input == null || input.trim().isEmpty()) {
