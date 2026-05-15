@@ -8,11 +8,20 @@ import org.instalk.cloud.common.model.po.UserAiConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class UserAiChatRequestFactory {
 
-    private static final String DEFAULT_MODEL = "qwen-plus";
+    /** 与前端 RobotConfigDialog 默认选项一致 */
+    private static final String DEFAULT_MODEL = "deepseek-v3";
+
+    /** 与前端 RobotConfigDialog.modelOptions 的 value 一致 */
+    private static final Set<String> ALLOWED_MODELS = Set.of(
+            "deepseek-v3",
+            "deepseek-r1",
+            "qwq-plus",
+            "qwen-max-2025-01-25");
 
     public ChatRequest chatRequest(List<ChatMessage> messages, UserAiConfig cfg) {
         return chatRequest(messages, cfg, List.of());
@@ -20,7 +29,7 @@ public class UserAiChatRequestFactory {
 
     public ChatRequest chatRequest(List<ChatMessage> messages, UserAiConfig cfg, List<ToolSpecification> tools) {
         OpenAiChatRequestParameters.Builder pb = OpenAiChatRequestParameters.builder()
-                .modelName(cfg.getModel() != null ? cfg.getModel() : DEFAULT_MODEL);
+                .modelName(resolveModel(cfg));
 
         if (tools != null && !tools.isEmpty()) {
             pb.toolSpecifications(tools);
@@ -46,5 +55,13 @@ public class UserAiChatRequestFactory {
                 .messages(messages)
                 .parameters(pb.build())
                 .build();
+    }
+
+    private static String resolveModel(UserAiConfig cfg) {
+        String m = cfg.getModel();
+        if (m != null && ALLOWED_MODELS.contains(m)) {
+            return m;
+        }
+        return DEFAULT_MODEL;
     }
 }

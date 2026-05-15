@@ -16,7 +16,8 @@ import java.time.Duration;
 @EnableConfigurationProperties(AiProviderProperties.class)
 public class LangChainAiConfig {
 
-    private static final String FALLBACK_CHAT_MODEL = "qwen-plus";
+    /** 与前端 RobotConfigDialog 默认模型一致（请求层仍由 UserAiChatRequestFactory 解析具体模型） */
+    private static final String FALLBACK_CHAT_MODEL = "deepseek-v3";
 
     @Bean
     public StreamingChatModel streamingChatModel(AiProviderProperties props) {
