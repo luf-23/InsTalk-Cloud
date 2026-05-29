@@ -7,7 +7,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication
 @EnableFeignClients(basePackages = "org.instalk.cloud.common.feign.client")
-@MapperScan("org.instalk.cloud.instalkidentityservice.user.mapper")
+@MapperScan("org.instalk.cloud.instalkidentityservice.mapper")
 public class InstalkIdentityServiceApplication {
 
     public static void main(String[] args) {

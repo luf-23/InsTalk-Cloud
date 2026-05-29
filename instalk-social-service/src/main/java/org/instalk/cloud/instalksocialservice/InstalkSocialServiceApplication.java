@@ -7,10 +7,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication
 @EnableFeignClients(basePackages = "org.instalk.cloud.common.feign.client")
-@MapperScan({
-    "org.instalk.cloud.instalksocialservice.friendship.mapper",
-    "org.instalk.cloud.instalksocialservice.group.mapper"
-})
+@MapperScan("org.instalk.cloud.instalksocialservice.mapper")
 public class InstalkSocialServiceApplication {
 
     public static void main(String[] args) {
