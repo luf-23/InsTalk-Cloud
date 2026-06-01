@@ -19,6 +19,8 @@ public class RabbitMQConfig {
     // 交换机名称
     public static final String MESSAGE_EXCHANGE = "instalk.message.exchange";
     public static final String DEAD_LETTER_EXCHANGE = "instalk.message.dlx";
+    /** WebSocket 推送 Fanout 交换机：每个 chat-service 实例绑定独立队列，广播到所有实例 */
+    public static final String WS_PUSH_FANOUT_EXCHANGE = "instalk.ws.push.exchange";
 
     // 路由键
     public static final String PRIVATE_MESSAGE_ROUTING_KEY = "message.private";
@@ -47,6 +49,11 @@ public class RabbitMQConfig {
     @Bean
     public TopicExchange messageExchange() {
         return new TopicExchange(MESSAGE_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public FanoutExchange wsPushFanoutExchange() {
+        return new FanoutExchange(WS_PUSH_FANOUT_EXCHANGE, true, false);
     }
 
     @Bean

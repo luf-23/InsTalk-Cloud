@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
 import org.instalk.cloud.common.model.vo.MessageVO;
+import org.instalk.cloud.instalkchatservice.mq.MessageProducer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -19,9 +21,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class WebSocketHandler extends TextWebSocketHandler {
 
-    private static final Map<Long, WebSocketSession> onlineUsers = new ConcurrentHashMap<>();
+    private static final Map<Long, WebSocketSession> localSessions = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper;
+
+    @Autowired
+    private MessageProducer messageProducer;
+
+    @Autowired
+    private WsOnlineRegistryService wsOnlineRegistry;
 
     public WebSocketHandler() {
         this.objectMapper = new ObjectMapper();
@@ -33,9 +41,10 @@ public class WebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) {
         Long userId = getUserIdFromSession(session);
         if (userId != null) {
-            onlineUsers.put(userId, session);
-            log.info("用户 {} 已连接 WebSocket，当前在线用户数：{}", userId, onlineUsers.size());
-            broadcastUserOnlineStatus(userId, true);
+            localSessions.put(userId, session);
+            wsOnlineRegistry.markOnline(userId);
+            log.info("用户 {} 已连接 WebSocket，本实例在线用户数：{}", userId, localSessions.size());
+            messageProducer.publishOnlineStatus(userId, true);
         }
     }
 
@@ -45,6 +54,9 @@ public class WebSocketHandler extends TextWebSocketHandler {
         log.debug("收到用户 {} 的消息：{}", userId, message.getPayload());
         if ("PING".equals(message.getPayload())) {
             session.sendMessage(new TextMessage("PONG"));
+            if (userId != null) {
+                wsOnlineRegistry.refreshOnline(userId);
+            }
         }
     }
 
@@ -52,9 +64,10 @@ public class WebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         Long userId = getUserIdFromSession(session);
         if (userId != null) {
-            onlineUsers.remove(userId);
-            log.info("用户 {} 已断开 WebSocket，当前在线用户数：{}", userId, onlineUsers.size());
-            broadcastUserOnlineStatus(userId, false);
+            localSessions.remove(userId);
+            wsOnlineRegistry.markOffline(userId);
+            log.info("用户 {} 已断开 WebSocket，本实例在线用户数：{}", userId, localSessions.size());
+            messageProducer.publishOnlineStatus(userId, false);
         }
     }
 
@@ -67,6 +80,11 @@ public class WebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    /** Fanout 消费端调用：向本实例 WebSocket 客户端广播上下线通知 */
+    public void broadcastOnlineStatusChange(Long userId, boolean online) {
+        broadcastUserOnlineStatus(userId, online);
+    }
+
     private Long getUserIdFromSession(WebSocketSession session) {
         Object userIdAttr = session.getAttributes().get("userId");
         if (userIdAttr instanceof Long) {
@@ -76,7 +94,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
     }
 
     public void sendMessageToUser(Long userId, MessageVO messageVO) {
-        WebSocketSession session = onlineUsers.get(userId);
+        WebSocketSession session = localSessions.get(userId);
         if (session != null && session.isOpen()) {
             try {
                 Map<String, Object> payload = Map.of(
@@ -90,7 +108,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
                 log.error("发送消息给用户 {} 失败：{}", userId, e.getMessage());
             }
         } else {
-            log.debug("用户 {} 不在线，无法发送消息", userId);
+            log.debug("用户 {} 不在本实例，无法发送消息", userId);
         }
     }
 
@@ -112,7 +130,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
         try {
             String json = objectMapper.writeValueAsString(payload);
             TextMessage message = new TextMessage(json);
-            for (Map.Entry<Long, WebSocketSession> entry : onlineUsers.entrySet()) {
+            for (Map.Entry<Long, WebSocketSession> entry : localSessions.entrySet()) {
                 if (entry.getKey().equals(userId) && online) {
                     continue;
                 }
@@ -131,7 +149,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
     }
 
     public void sendMessageRecallNotification(Long userId, Long messageId) {
-        WebSocketSession session = onlineUsers.get(userId);
+        WebSocketSession session = localSessions.get(userId);
         if (session != null && session.isOpen()) {
             try {
                 Map<String, Object> payload = Map.of(
@@ -144,8 +162,6 @@ public class WebSocketHandler extends TextWebSocketHandler {
             } catch (IOException e) {
                 log.error("发送消息撤回通知给用户 {} 失败：{}", userId, e.getMessage());
             }
-        } else {
-            log.debug("用户 {} 不在线，无法发送消息撤回通知", userId);
         }
     }
 
@@ -156,7 +172,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
     }
 
     public void sendFriendDeletedNotification(Long userId, Long deleterId) {
-        WebSocketSession session = onlineUsers.get(userId);
+        WebSocketSession session = localSessions.get(userId);
         if (session != null && session.isOpen()) {
             try {
                 Map<String, Object> payload = Map.of(
@@ -169,13 +185,11 @@ public class WebSocketHandler extends TextWebSocketHandler {
             } catch (IOException e) {
                 log.error("发送好友删除通知给用户 {} 失败：{}", userId, e.getMessage());
             }
-        } else {
-            log.debug("用户 {} 不在线，无法发送好友删除通知", userId);
         }
     }
 
     public void sendGroupDeletedNotification(Long userId, Long groupId) {
-        WebSocketSession session = onlineUsers.get(userId);
+        WebSocketSession session = localSessions.get(userId);
         if (session != null && session.isOpen()) {
             try {
                 Map<String, Object> payload = Map.of(
@@ -188,8 +202,6 @@ public class WebSocketHandler extends TextWebSocketHandler {
             } catch (IOException e) {
                 log.error("发送群组解散通知给用户 {} 失败：{}", userId, e.getMessage());
             }
-        } else {
-            log.debug("用户 {} 不在线，无法发送群组解散通知", userId);
         }
     }
 
@@ -202,16 +214,12 @@ public class WebSocketHandler extends TextWebSocketHandler {
         log.info("广播群组解散通知，群组ID：{}，通知用户数：{}", groupId, count);
     }
 
-    public boolean isUserOnline(Long userId) {
-        WebSocketSession session = onlineUsers.get(userId);
+    public boolean hasLocalSession(Long userId) {
+        WebSocketSession session = localSessions.get(userId);
         return session != null && session.isOpen();
     }
 
-    public Map<Long, Boolean> getOnlineUsers() {
-        Map<Long, Boolean> result = new ConcurrentHashMap<>();
-        for (Long userId : onlineUsers.keySet()) {
-            result.put(userId, true);
-        }
-        return result;
+    public boolean isUserOnline(Long userId) {
+        return wsOnlineRegistry.isOnline(userId);
     }
 }

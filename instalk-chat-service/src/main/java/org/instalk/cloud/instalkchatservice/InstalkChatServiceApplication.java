@@ -9,7 +9,8 @@ import org.springframework.context.annotation.ComponentScan;
 @EnableFeignClients(basePackages = "org.instalk.cloud.common.feign.client")
 @ComponentScan(basePackages = {
     "org.instalk.cloud.instalkchatservice",
-    "org.instalk.cloud.infrastructure.rabbitmq"
+    "org.instalk.cloud.infrastructure.rabbitmq",
+    "org.instalk.cloud.infrastructure.redis"
 })
 public class InstalkChatServiceApplication {
 

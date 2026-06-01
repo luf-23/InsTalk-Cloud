@@ -2,8 +2,7 @@ package org.instalk.cloud.instalkchatservice.mq;
 
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
-import org.instalk.cloud.common.model.mq.MessageMQ;
-import org.instalk.cloud.infrastructure.rabbitmq.RabbitMQConfig;
+import org.instalk.cloud.common.model.mq.MessagePushMQ;
 import org.instalk.cloud.instalkchatservice.service.WebSocketHandler;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
@@ -13,6 +12,9 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+/**
+ * 每个实例消费自己的 Fanout 队列副本，仅向本地 WebSocket session 投递。
+ */
 @Slf4j
 @Component
 public class MessageConsumer {
@@ -20,71 +22,90 @@ public class MessageConsumer {
     @Autowired
     private WebSocketHandler webSocketHandler;
 
-    @RabbitListener(queues = RabbitMQConfig.PRIVATE_MESSAGE_QUEUE)
-    public void handlePrivateMessage(MessageMQ messageMQ, Channel channel,
-                                     @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
-        Long messageId = messageMQ.getMessageVO().getId();
-        Long receiverId = messageMQ.getMessageVO().getReceiverId();
-
+    @RabbitListener(queues = "#{messagePushInstanceQueue.name}")
+    public void handleMessagePush(MessagePushMQ messagePushMQ, Channel channel,
+                                 @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         try {
-            if (webSocketHandler.isUserOnline(receiverId)) {
-                webSocketHandler.sendMessageToUser(receiverId, messageMQ.getMessageVO());
-                channel.basicAck(deliveryTag, false);
-                log.info("私聊消息已送达, ID: {}", messageId);
-            } else {
-                // 消息已持久化；接收方离线（含永不连接 WebSocket 的 AI 机器人）时不应 requeue，否则会无限抢占消费者
-                channel.basicAck(deliveryTag, false);
-                log.debug("用户{}离线, 跳过实时推送（消息已持久化）, ID: {}", receiverId, messageId);
-            }
+            dispatch(messagePushMQ);
+            channel.basicAck(deliveryTag, false);
         } catch (Exception e) {
-            log.error("处理私聊消息失败, ID: {}", messageId, e);
-            handleError(messageMQ, channel, deliveryTag);
+            log.error("WebSocket 推送处理失败, type={}: {}", messagePushMQ.getPushType(), e.getMessage(), e);
+            handleError(messagePushMQ, channel, deliveryTag);
         }
     }
 
-    @RabbitListener(queues = RabbitMQConfig.GROUP_MESSAGE_QUEUE)
-    public void handleGroupMessage(MessageMQ messageMQ, Channel channel,
-                                   @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
-        Long messageId = messageMQ.getMessageVO().getId();
-
-        try {
-            int successCount = 0;
-            for (Long receiverId : messageMQ.getReceiverIds()) {
-                if (webSocketHandler.isUserOnline(receiverId)) {
-                    try {
-                        webSocketHandler.sendMessageToUser(receiverId, messageMQ.getMessageVO());
-                        successCount++;
-                    } catch (Exception e) {
-                        log.warn("推送给用户{}失败", receiverId);
-                    }
-                }
-            }
-
-            if (successCount > 0) {
-                channel.basicAck(deliveryTag, false);
-                log.info("群消息推送完成, ID: {}, 成功: {}/{}", messageId, successCount, messageMQ.getReceiverIds().size());
-            } else {
-                channel.basicAck(deliveryTag, false);
-                log.debug("群消息无在线成员, 跳过实时推送（消息已持久化）, ID: {}", messageId);
-            }
-        } catch (Exception e) {
-            log.error("处理群聊消息失败, ID: {}", messageId, e);
-            handleError(messageMQ, channel, deliveryTag);
+    private void dispatch(MessagePushMQ messagePushMQ) {
+        switch (messagePushMQ.getPushType()) {
+            case PRIVATE_MESSAGE -> handlePrivateMessage(messagePushMQ);
+            case GROUP_MESSAGE -> handleGroupMessage(messagePushMQ);
+            case FRIEND_DELETED -> handleFriendDeleted(messagePushMQ);
+            case MESSAGE_RECALL -> handleMessageRecall(messagePushMQ);
+            case BROADCAST_RECALL -> handleBroadcastRecall(messagePushMQ);
+            case GROUP_DELETED -> handleGroupDeleted(messagePushMQ);
+            case USER_ONLINE_STATUS -> handleOnlineStatus(messagePushMQ);
+            default -> log.warn("未知的 WebSocket 推送类型: {}", messagePushMQ.getPushType());
         }
     }
 
-    private void handleError(MessageMQ messageMQ, Channel channel, long deliveryTag) {
+    private void handlePrivateMessage(MessagePushMQ messagePushMQ) {
+        Long receiverId = messagePushMQ.getReceiverId();
+        if (webSocketHandler.hasLocalSession(receiverId)) {
+            webSocketHandler.sendMessageToUser(receiverId, messagePushMQ.getMessageVO());
+            log.debug("本实例已推送私聊消息给用户 {}, 消息ID: {}", receiverId, messagePushMQ.getMessageVO().getId());
+        }
+    }
+
+    private void handleGroupMessage(MessagePushMQ messagePushMQ) {
+        int pushed = 0;
+        for (Long receiverId : messagePushMQ.getReceiverIds()) {
+            if (webSocketHandler.hasLocalSession(receiverId)) {
+                webSocketHandler.sendMessageToUser(receiverId, messagePushMQ.getMessageVO());
+                pushed++;
+            }
+        }
+        if (pushed > 0) {
+            log.debug("本实例已推送群聊消息, 消息ID: {}, 推送人数: {}/{}",
+                    messagePushMQ.getMessageVO().getId(), pushed, messagePushMQ.getReceiverIds().size());
+        }
+    }
+
+    private void handleFriendDeleted(MessagePushMQ messagePushMQ) {
+        if (webSocketHandler.hasLocalSession(messagePushMQ.getReceiverId())) {
+            webSocketHandler.sendFriendDeletedNotification(messagePushMQ.getReceiverId(), messagePushMQ.getFriendId());
+        }
+    }
+
+    private void handleMessageRecall(MessagePushMQ messagePushMQ) {
+        if (webSocketHandler.hasLocalSession(messagePushMQ.getReceiverId())) {
+            webSocketHandler.sendMessageRecallNotification(messagePushMQ.getReceiverId(), messagePushMQ.getMessageId());
+        }
+    }
+
+    private void handleBroadcastRecall(MessagePushMQ messagePushMQ) {
+        webSocketHandler.broadcastMessageRecallNotification(messagePushMQ.getReceiverIds(), messagePushMQ.getMessageId());
+    }
+
+    private void handleGroupDeleted(MessagePushMQ messagePushMQ) {
+        webSocketHandler.broadcastGroupDeletedNotification(messagePushMQ.getReceiverIds(), messagePushMQ.getGroupId());
+    }
+
+    private void handleOnlineStatus(MessagePushMQ messagePushMQ) {
+        webSocketHandler.broadcastOnlineStatusChange(
+                messagePushMQ.getReceiverId(), Boolean.TRUE.equals(messagePushMQ.getOnline()));
+    }
+
+    private void handleError(MessagePushMQ messagePushMQ, Channel channel, long deliveryTag) {
         try {
-            messageMQ.setRetryCount(messageMQ.getRetryCount() + 1);
-            if (messageMQ.getRetryCount() < 3) {
+            messagePushMQ.setRetryCount(messagePushMQ.getRetryCount() + 1);
+            if (messagePushMQ.getRetryCount() < 3) {
                 channel.basicNack(deliveryTag, false, true);
-                log.warn("消息重试, 次数: {}", messageMQ.getRetryCount());
+                log.warn("WebSocket 推送重试, type={}, 次数: {}", messagePushMQ.getPushType(), messagePushMQ.getRetryCount());
             } else {
                 channel.basicNack(deliveryTag, false, false);
-                log.error("消息重试超限, 进入死信队列");
+                log.error("WebSocket 推送重试超限, type={}", messagePushMQ.getPushType());
             }
         } catch (IOException e) {
-            log.error("ACK处理失败: {}", e.getMessage());
+            log.error("WebSocket 推送 ACK 处理失败: {}", e.getMessage());
         }
     }
 }

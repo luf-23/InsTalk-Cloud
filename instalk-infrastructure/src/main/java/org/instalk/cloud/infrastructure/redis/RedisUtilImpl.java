@@ -3,6 +3,7 @@ package org.instalk.cloud.infrastructure.redis;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lombok.Getter;
 import org.instalk.cloud.common.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class RedisUtilImpl implements RedisUtil {
 
+    @Getter
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
@@ -26,10 +28,6 @@ public class RedisUtilImpl implements RedisUtil {
         this.objectMapper = new ObjectMapper();
         // 支持 Java 8 日期时间类型
         this.objectMapper.registerModule(new JavaTimeModule());
-    }
-
-    public StringRedisTemplate getStringRedisTemplate() {
-        return stringRedisTemplate;
     }
 
     public void set(String key, String value, long timeout, TimeUnit unit) {
