@@ -23,6 +23,7 @@ InsTalk Cloud 是一个基于 Spring Cloud 的即时通讯后端项目，采用�
 - 异步消息：RabbitMQ 负责消息投递、消费和死信处理。
 - 服务治理：Nacos 用于服务注册和配置管理。
 - 公共能力沉淀：DTO/VO、Feign API、Token、Redis、SMTP 等能力集中维护。
+- 容器化部署：Docker Compose 可一键构建并启动基础依赖、后端微服务和前端 Nginx。
 
 ## Tech Stack
 
@@ -32,13 +33,14 @@ InsTalk Cloud 是一个基于 Spring Cloud 的即时通讯后端项目，采用�
 | Framework | Spring Boot 3.4.1, Spring Cloud 2024.0.0, Spring Cloud Alibaba 2023.0.3.3 |
 | Gateway | Spring Cloud Gateway |
 | Registry & Config | Nacos 2.2.3 |
-| Database | MySQL 5.7, MyBatis |
+| Database | MySQL, PostgreSQL / pgvector, MyBatis |
 | Cache | Redis 7 |
 | Message Queue | RabbitMQ 3.12 |
 | RPC | OpenFeign |
 | Realtime | WebSocket |
 | Object Storage | Aliyun OSS |
 | Build | Maven multi-module |
+| Container | Docker, Docker Compose, Nginx |
 
 ## Architecture
 
@@ -51,8 +53,11 @@ InsTalk-Cloud
 ├── instalk-social-service     # 好友关系、群组
 ├── instalk-ai-service         # AI 配置、AI 对话
 ├── instalk-chat-service       # 消息、WebSocket、MQ 消费生产
-├── docker-compose.yml         # 本地中间件编排
-├── .env.example               # 本地环境变量示例
+├── mysql-init                 # MySQL 初始化脚本
+├── postgres-init              # PostgreSQL / pgvector 初始化脚本
+├── nacos-conf                 # Nacos 配置文件
+├── Dockerfile                 # 后端微服务通用镜像构建文件
+├── docker-compose.yml         # 基础依赖、后端微服务、前端 Nginx 编排
 ├── start-all.bat              # Windows 一键构建并启动全部服务
 └── start-one.bat              # Windows 单服务启动示例
 ```
@@ -83,9 +88,9 @@ InsTalk-Cloud
 ## Requirements
 
 - JDK 21
-- Maven 3.9+，或使用项目内 Maven Wrapper
+- Maven 3.9+
 - Docker Desktop / Docker Engine
-- MySQL 客户端工具，可选但推荐
+- 前端项目 `InsTalk-Frontend` 与本项目位于同级目录时，可通过 Compose 一起构建前端 Nginx 镜像。
 
 ## Quick Start
 
@@ -96,50 +101,76 @@ git clone https://github.com/luf-23/InsTalk-Cloud.git
 cd InsTalk-Cloud
 ```
 
-### 2. Configure Environment
+如需一起构建前端，请确保目录结构类似：
 
-```bash
-cp .env.example .env
+```text
+InsTalk
+├── InsTalk-Cloud
+└── InsTalk-Frontend
 ```
 
-根据本地环境修改 `.env` 中的密码、Token、OSS、AI、邮箱等配置。`.env` 只用于本地，不要提交真实密钥。
+### 2. Configure Docker Profile
 
-### 3. Start Middleware
+本地开发默认读取各模块的 `application.yml`。
+
+Docker 运行时通过 Compose 激活：
+
+```yaml
+SPRING_PROFILES_ACTIVE: docker
+```
+
+并读取各模块本地的 `application-docker.yml`，用于覆盖 Docker 环境里的连接地址，例如：
+
+```yaml
+spring:
+  cloud:
+    nacos:
+      server-addr: nacos:8848
+```
+
+`application-docker.yml` 通常包含数据库账号、密码等本地配置，已被 `.gitignore` 忽略，不应提交到仓库。
+
+### 3. One Command Startup
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 docker compose ps
 ```
 
-本地中间件：
+Compose 会启动基础依赖、后端微服务和前端 Nginx：
 
 | Component | URL |
 | --- | --- |
+| Frontend Nginx | `http://localhost` |
 | MySQL | `localhost:3306` |
 | Redis | `localhost:6379` |
+| PostgreSQL / pgvector | `localhost:5432` |
 | Nacos | `http://localhost:8848` |
 | RabbitMQ | `localhost:5672` |
 | RabbitMQ Management | `http://localhost:15672` |
 
-### 4. Prepare Database
+前端 Nginx 会代理：
 
-业务服务默认使用 `ins_talk` 数据库：
+| Path | Proxy Target |
+| --- | --- |
+| `/api/` | `instalk-gateway:10010` |
+| `/ws` | `instalk-gateway:10010` |
 
-```sql
-CREATE DATABASE IF NOT EXISTS ins_talk
-  DEFAULT CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-```
+网关和业务微服务通过 Docker Compose 内部网络通信，不需要直接暴露到宿主机端口。
 
-如果使用 Nacos MySQL 持久化，也需要提前准备 `.env` 中配置的 `MYSQL_SERVICE_DB_NAME`、`MYSQL_SERVICE_USER` 和 `MYSQL_SERVICE_PASSWORD`。
-
-### 5. Build
+### 4. Local Build
 
 ```bash
 mvn clean package -DskipTests
 ```
 
-### 6. Run
+只构建单个服务及其依赖：
+
+```bash
+mvn -pl instalk-chat-service -am package -DskipTests
+```
+
+### 5. Local Run
 
 Windows 可直接运行：
 
@@ -154,26 +185,64 @@ mvn -pl instalk-gateway -am package -DskipTests
 java -jar instalk-gateway/target/instalk-gateway-1.0.0.jar
 ```
 
-服务启动后，统一后端入口为：
+本地直接运行后端时，统一后端入口为：
 
 ```text
 http://localhost:10010
 ```
 
+## Multi Instance
+
+业务微服务没有固定 `container_name`，可以通过 `--scale` 启动多个实例：
+
+```powershell
+docker compose up -d --build `
+  --scale instalk-identity-service=2 `
+  --scale instalk-social-service=2 `
+  --scale instalk-chat-service=2 `
+  --scale instalk-ai-service=2
+```
+
+多个实例会注册到 Nacos，网关通过 `lb://服务名` 进行负载均衡。
+
+## Restart Policy
+
+当前基础依赖的重启策略：
+
+| Component | Restart |
+| --- | --- |
+| MySQL | `unless-stopped` |
+| Redis | `unless-stopped` |
+| PostgreSQL | `"no"` |
+| Nacos | `"no"` |
+| RabbitMQ | `"no"` |
+
+如果容器已经创建过，可以直接更新现有容器策略：
+
+```powershell
+docker update --restart=unless-stopped local_mysql local_redis
+docker update --restart=no local_postgres local_nacos local_rabbitmq
+```
+
+业务服务当前使用：
+
+```yaml
+restart: on-failure
+```
+
 ## Configuration
 
-`.env.example` 已整理常用配置项：
-
-| Group | Variables |
-| --- | --- |
-| MySQL | `MYSQL_ROOT_PASSWORD`, `SPRING_DATASOURCE_*` |
-| Nacos | `MYSQL_SERVICE_*`, `NACOS_AUTH_*`, `SPRING_CLOUD_NACOS_*` |
-| RabbitMQ | `RABBITMQ_DEFAULT_*`, `SPRING_RABBITMQ_*` |
-| Mail | `SPRING_MAIL_*` |
-| OSS | `ALIYUN_OSS_*` |
-| AI | `AI_KEY`, `AI_URL` |
-
 建议将真实配置放在环境变量、Nacos 配置中心或 CI/CD Secret 中，避免把数据库密码、OSS Key、AI Key、邮箱授权码提交到仓库。
+
+Docker 环境内常用服务地址：
+
+| Component | Docker Host |
+| --- | --- |
+| MySQL | `mysql:3306` |
+| Redis | `redis:6379` |
+| PostgreSQL | `postgres:5432` |
+| Nacos | `nacos:8848` |
+| RabbitMQ | `rabbitmq:5672` |
 
 ## Authentication
 
@@ -197,13 +266,19 @@ gateway:
 常用命令：
 
 ```bash
-# 启动本地中间件
-docker compose up -d
+# 启动或更新全部容器
+docker compose up -d --build
 
-# 查看中间件状态
+# 只启动基础依赖
+docker compose up -d mysql redis nacos rabbitmq postgres
+
+# 查看容器状态
 docker compose ps
 
-# 停止中间件
+# 查看网关日志
+docker compose logs -f instalk-gateway
+
+# 停止并删除容器
 docker compose down
 
 # 打包全部模块
@@ -228,11 +303,13 @@ mvn test
 
 | Problem | Check |
 | --- | --- |
+| Docker 构建失败 | Docker Desktop Linux engine 是否已启动，前端目录是否位于 `../InsTalk-Frontend` |
 | 服务无法注册 | Nacos 是否启动，`8848/9848/9849` 是否可访问，账号密码是否正确 |
-| 数据库连接失败 | MySQL 是否启动，`ins_talk` 是否存在，账号密码是否匹配 |
+| 数据库连接失败 | MySQL 是否启动，`ins_talk` 是否存在，Docker 环境是否使用 `mysql:3306` |
 | RabbitMQ 连接失败 | RabbitMQ 是否启动，用户、密码、vhost 是否与配置一致 |
 | 网关返回 401 | 路径是否在白名单中，Token 是否有效 |
 | Feign 调用失败 | 被调用服务是否已启动，并成功注册到 Nacos |
+| 前端接口 404 | Nginx 是否启动，前端请求是否以 `/api/` 或 `/ws` 访问 |
 
 ## Related
 

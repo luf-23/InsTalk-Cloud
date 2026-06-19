@@ -7,6 +7,7 @@ services:
     volumes:
       - ./redis_data:/data
     command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -24,6 +25,7 @@ services:
     volumes:
       - ./mysql_data:/var/lib/mysql
       - ./mysql-init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -prootpassword --silent"]
       interval: 10s
@@ -47,6 +49,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+    restart: "no"
 
   nacos:
     image: nacos/nacos-server:v2.2.3
@@ -64,7 +67,7 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    restart: on-failure
+    restart: "no"
 
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
@@ -78,7 +81,7 @@ services:
       - RABBITMQ_DEFAULT_VHOST=/
     volumes:
       - ./rabbitmq_data:/var/lib/rabbitmq
-    restart: on-failure
+    restart: "no"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 30s
