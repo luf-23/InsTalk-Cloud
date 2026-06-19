@@ -1,0 +1,11 @@
+.git
+.idea
+.run
+**/target
+**/.mvn
+mysql_data
+postgres_data
+redis_data
+rabbitmq_data
+nacos_data
+*.log

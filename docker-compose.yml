@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   redis:
     image: redis:7-alpine
@@ -9,6 +7,11 @@ services:
     volumes:
       - ./redis_data:/data
     command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   mysql:
     image: mysql:8.4
@@ -17,9 +20,15 @@ services:
       - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: ins_talk
     volumes:
       - ./mysql_data:/var/lib/mysql
       - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -prootpassword --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -33,6 +42,11 @@ services:
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d instalk"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
 
   nacos:
     image: nacos/nacos-server:v2.2.3
@@ -48,7 +62,8 @@ services:
       - ./nacos_data:/home/nacos/data
       - ./nacos-conf/application.properties:/home/nacos/conf/application.properties
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     restart: on-failure
 
   rabbitmq:
@@ -69,3 +84,98 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+
+  instalk-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: instalk-gateway
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    depends_on:
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_started
+    restart: on-failure
+
+  instalk-identity-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: instalk-identity-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_started
+    restart: on-failure
+
+  instalk-social-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: instalk-social-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_started
+    restart: on-failure
+
+  instalk-chat-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: instalk-chat-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      nacos:
+        condition: service_started
+    restart: on-failure
+
+  instalk-ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: instalk-ai-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nacos:
+        condition: service_started
+    restart: on-failure
+
+  instalk-frontend:
+    build:
+      context: ../InsTalk-Frontend
+      dockerfile: Dockerfile
+    container_name: instalk_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - instalk-gateway
+    restart: on-failure
