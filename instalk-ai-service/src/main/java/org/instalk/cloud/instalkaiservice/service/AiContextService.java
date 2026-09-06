@@ -34,9 +34,6 @@ public class AiContextService {
     private AiMemoryMapper aiMemoryMapper;
 
     @Autowired
-    private AiUsagePolicy aiUsagePolicy;
-
-    @Autowired
     private EmbeddingVectorClient embeddingVectorClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -100,12 +97,43 @@ public class AiContextService {
             return;
         }
 
-        String summaryText = aiUsagePolicy.buildSimpleSummary(sorted.subList(0, compactCount), userId);
+        String summaryText = buildRollingSummaryText(sorted.subList(0, compactCount), userId);
         if (summaryText.isBlank()) {
             return;
         }
 
         aiChatSummaryMapper.upsert(userId, robotId, summaryText, currentMessageId);
+    }
+
+    private String buildRollingSummaryText(List<Message> messages, Long userId) {
+        if (messages == null || messages.isEmpty()) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        for (Message message : messages) {
+            String role = message.getSenderId().equals(userId) ? "User" : "Assistant";
+            String content = message.getContent() == null ? "" : message.getContent().trim();
+            if (content.isEmpty()) {
+                continue;
+            }
+            lines.add(role + ": " + content);
+        }
+        return trimSummaryLines(lines, 12, 2000);
+    }
+
+    private String trimSummaryLines(List<String> lines, int maxLines, int maxChars) {
+        if (lines == null || lines.isEmpty()) {
+            return "";
+        }
+        List<String> trimmed = lines;
+        if (lines.size() > maxLines) {
+            trimmed = lines.subList(lines.size() - maxLines, lines.size());
+        }
+        String joined = String.join("\n", trimmed);
+        if (joined.length() > maxChars) {
+            return joined.substring(joined.length() - maxChars);
+        }
+        return joined;
     }
 
     /**
