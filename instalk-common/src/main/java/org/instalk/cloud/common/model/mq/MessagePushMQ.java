@@ -27,7 +27,6 @@ public class MessagePushMQ implements Serializable {
     private Long messageId;
     private Long friendId;
     private Long groupId;
-    private Boolean online;
     private Integer retryCount = 0;
 
     public static MessagePushMQ fromPrivateMessage(MessageMQ messageMQ) {
@@ -96,11 +95,16 @@ public class MessagePushMQ implements Serializable {
         return push;
     }
 
-    public static MessagePushMQ fromOnlineStatus(Long userId, boolean online) {
-        MessagePushMQ push = new MessagePushMQ();
-        push.setPushType(MessagePushType.USER_ONLINE_STATUS);
-        push.setReceiverId(userId);
-        push.setOnline(online);
-        return push;
+    public MessagePushMQ forReceivers(List<Long> receiverIds) {
+        MessagePushMQ copy = new MessagePushMQ();
+        copy.pushType = pushType;
+        copy.messageVO = messageVO;
+        copy.receiverId = receiverId;
+        copy.receiverIds = receiverIds;
+        copy.messageId = messageId;
+        copy.friendId = friendId;
+        copy.groupId = groupId;
+        copy.retryCount = retryCount;
+        return copy;
     }
 }

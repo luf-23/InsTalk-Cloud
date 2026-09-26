@@ -14,6 +14,8 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,9 +26,6 @@ public class WebSocketHandler extends TextWebSocketHandler {
     private static final Map<Long, WebSocketSession> localSessions = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper;
-
-    @Autowired
-    private MessageProducer messageProducer;
 
     @Autowired
     private WsOnlineRegistryService wsOnlineRegistry;
@@ -44,7 +43,6 @@ public class WebSocketHandler extends TextWebSocketHandler {
             localSessions.put(userId, session);
             wsOnlineRegistry.markOnline(userId);
             log.info("用户 {} 已连接 WebSocket，本实例在线用户数：{}", userId, localSessions.size());
-            messageProducer.publishOnlineStatus(userId, true);
         }
     }
 
@@ -67,7 +65,6 @@ public class WebSocketHandler extends TextWebSocketHandler {
             localSessions.remove(userId);
             wsOnlineRegistry.markOffline(userId);
             log.info("用户 {} 已断开 WebSocket，本实例在线用户数：{}", userId, localSessions.size());
-            messageProducer.publishOnlineStatus(userId, false);
         }
     }
 
@@ -78,11 +75,6 @@ public class WebSocketHandler extends TextWebSocketHandler {
         if (session.isOpen()) {
             session.close();
         }
-    }
-
-    /** Fanout 消费端调用：向本实例 WebSocket 客户端广播上下线通知 */
-    public void broadcastOnlineStatusChange(Long userId, boolean online) {
-        broadcastUserOnlineStatus(userId, online);
     }
 
     private Long getUserIdFromSession(WebSocketSession session) {
@@ -115,36 +107,6 @@ public class WebSocketHandler extends TextWebSocketHandler {
     public void broadcastMessageToUsers(Iterable<Long> userIds, MessageVO messageVO) {
         for (Long userId : userIds) {
             sendMessageToUser(userId, messageVO);
-        }
-    }
-
-    private void broadcastUserOnlineStatus(Long userId, boolean online) {
-        Map<String, Object> payload = Map.of(
-                "type", "USER_ONLINE_STATUS",
-                "data", Map.of(
-                        "userId", userId,
-                        "online", online
-                )
-        );
-
-        try {
-            String json = objectMapper.writeValueAsString(payload);
-            TextMessage message = new TextMessage(json);
-            for (Map.Entry<Long, WebSocketSession> entry : localSessions.entrySet()) {
-                if (entry.getKey().equals(userId) && online) {
-                    continue;
-                }
-                WebSocketSession session = entry.getValue();
-                if (session.isOpen()) {
-                    try {
-                        session.sendMessage(message);
-                    } catch (IOException e) {
-                        log.error("广播在线状态失败：{}", e.getMessage());
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.error("创建在线状态消息失败：{}", e.getMessage());
         }
     }
 
@@ -221,5 +183,18 @@ public class WebSocketHandler extends TextWebSocketHandler {
 
     public boolean isUserOnline(Long userId) {
         return wsOnlineRegistry.isOnline(userId);
+    }
+
+    public Map<Long, Boolean> getOnlineStatuses(List<Long> userIds) {
+        Map<Long, Boolean> statuses = new LinkedHashMap<>();
+        if (userIds == null) {
+            return statuses;
+        }
+        for (Long userId : userIds) {
+            if (userId != null && !statuses.containsKey(userId)) {
+                statuses.put(userId, isUserOnline(userId));
+            }
+        }
+        return statuses;
     }
 }

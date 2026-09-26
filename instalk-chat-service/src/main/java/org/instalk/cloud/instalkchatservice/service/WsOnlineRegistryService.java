@@ -52,6 +52,10 @@ public class WsOnlineRegistryService {
         return Boolean.TRUE.equals(redisUtil.hasKey(buildKey(userId)));
     }
 
+    public String findInstanceId(Long userId) {
+        return redisUtil.get(buildKey(userId));
+    }
+
     private String buildKey(Long userId) {
         return KEY_PREFIX + userId;
     }

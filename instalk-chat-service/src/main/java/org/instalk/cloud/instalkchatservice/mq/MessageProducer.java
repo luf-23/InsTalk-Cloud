@@ -10,9 +10,15 @@ import org.instalk.cloud.common.model.dto.internal.WsSendPrivateMessageDTO;
 import org.instalk.cloud.common.model.mq.MessageMQ;
 import org.instalk.cloud.common.model.mq.MessagePushMQ;
 import org.instalk.cloud.infrastructure.rabbitmq.RabbitMQConfig;
+import org.instalk.cloud.instalkchatservice.service.WsOnlineRegistryService;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -21,50 +27,70 @@ public class MessageProducer {
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
+    @Autowired
+    private WsOnlineRegistryService wsOnlineRegistry;
+
     public void sendPrivateMessage(MessageMQ messageMQ) {
-        publish(MessagePushMQ.fromPrivateMessage(messageMQ));
-        log.info("私聊 WebSocket 推送已广播到 Fanout, 消息ID: {}", messageMQ.getMessageVO().getId());
+        publishToUser(MessagePushMQ.fromPrivateMessage(messageMQ));
+        log.info("私聊 WebSocket 推送已定向投递, 消息ID: {}", messageMQ.getMessageVO().getId());
     }
 
     public void sendGroupMessage(MessageMQ messageMQ) {
-        publish(MessagePushMQ.fromGroupMessage(messageMQ));
-        log.info("群聊 WebSocket 推送已广播到 Fanout, 消息ID: {}", messageMQ.getMessageVO().getId());
+        publishToUsers(MessagePushMQ.fromGroupMessage(messageMQ));
+        log.info("群聊 WebSocket 推送已按实例定向投递, 消息ID: {}", messageMQ.getMessageVO().getId());
     }
 
     public void publishSendPrivateMessage(WsSendPrivateMessageDTO dto) {
-        publish(MessagePushMQ.fromSendPrivateMessage(dto));
+        publishToUser(MessagePushMQ.fromSendPrivateMessage(dto));
     }
 
     public void publishBroadcastMessage(WsBroadcastMessageDTO dto) {
-        publish(MessagePushMQ.fromBroadcastMessage(dto));
+        publishToUsers(MessagePushMQ.fromBroadcastMessage(dto));
     }
 
     public void publishFriendDeleted(WsDeleteFriendDTO dto) {
-        publish(MessagePushMQ.fromDeleteFriend(dto));
+        publishToUser(MessagePushMQ.fromDeleteFriend(dto));
     }
 
     public void publishMessageRecall(WsRevokeMessageDTO dto) {
-        publish(MessagePushMQ.fromRevokeMessage(dto));
+        publishToUser(MessagePushMQ.fromRevokeMessage(dto));
     }
 
     public void publishBroadcastRecall(WsBroadcastRevokeDTO dto) {
-        publish(MessagePushMQ.fromBroadcastRevoke(dto));
+        publishToUsers(MessagePushMQ.fromBroadcastRevoke(dto));
     }
 
     public void publishGroupDeleted(WsBroadcastGroupDeleteDTO dto) {
-        publish(MessagePushMQ.fromBroadcastGroupDelete(dto));
+        publishToUsers(MessagePushMQ.fromBroadcastGroupDelete(dto));
     }
 
-    public void publishOnlineStatus(Long userId, boolean online) {
-        publish(MessagePushMQ.fromOnlineStatus(userId, online));
+    private void publishToUser(MessagePushMQ messagePushMQ) {
+        Long userId = messagePushMQ.getReceiverId();
+        String instanceId = wsOnlineRegistry.findInstanceId(userId);
+        if (instanceId != null) {
+            publishToInstance(instanceId, messagePushMQ);
+        }
     }
 
-    private void publish(MessagePushMQ messagePushMQ) {
+    private void publishToUsers(MessagePushMQ messagePushMQ) {
+        Map<String, List<Long>> usersByInstance = new LinkedHashMap<>();
+        for (Long userId : messagePushMQ.getReceiverIds()) {
+            String instanceId = wsOnlineRegistry.findInstanceId(userId);
+            if (instanceId != null) {
+                usersByInstance.computeIfAbsent(instanceId, key -> new ArrayList<>()).add(userId);
+            }
+        }
+        usersByInstance.forEach((instanceId, userIds) ->
+                publishToInstance(instanceId, messagePushMQ.forReceivers(userIds)));
+    }
+
+    private void publishToInstance(String instanceId, MessagePushMQ messagePushMQ) {
         try {
-            rabbitTemplate.convertAndSend(RabbitMQConfig.WS_PUSH_FANOUT_EXCHANGE, "", messagePushMQ);
+            rabbitTemplate.convertAndSend(RabbitMQConfig.WS_PUSH_INSTANCE_EXCHANGE, instanceId, messagePushMQ);
         } catch (Exception e) {
-            log.error("WebSocket 推送广播失败, type={}: {}", messagePushMQ.getPushType(), e.getMessage(), e);
-            throw new RuntimeException("WebSocket 推送广播失败", e);
+            log.error("WebSocket 推送定向投递失败, instanceId={}, type={}: {}", instanceId,
+                    messagePushMQ.getPushType(), e.getMessage(), e);
+            throw new RuntimeException("WebSocket 推送定向投递失败", e);
         }
     }
 }

@@ -6,6 +6,5 @@ public enum MessagePushType {
     FRIEND_DELETED,
     MESSAGE_RECALL,
     BROADCAST_RECALL,
-    GROUP_DELETED,
-    USER_ONLINE_STATUS
+    GROUP_DELETED
 }

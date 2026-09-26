@@ -12,9 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-/**
- * 每个实例消费自己的 Fanout 队列副本，仅向本地 WebSocket session 投递。
- */
+/** 消费本实例的定向 WebSocket 推送。 */
 @Slf4j
 @Component
 public class MessageConsumer {
@@ -25,6 +23,10 @@ public class MessageConsumer {
     @RabbitListener(queues = "#{messagePushInstanceQueue.name}")
     public void handleMessagePush(MessagePushMQ messagePushMQ, Channel channel,
                                  @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+        handle(messagePushMQ, channel, deliveryTag);
+    }
+
+    private void handle(MessagePushMQ messagePushMQ, Channel channel, long deliveryTag) {
         try {
             dispatch(messagePushMQ);
             channel.basicAck(deliveryTag, false);
@@ -42,7 +44,6 @@ public class MessageConsumer {
             case MESSAGE_RECALL -> handleMessageRecall(messagePushMQ);
             case BROADCAST_RECALL -> handleBroadcastRecall(messagePushMQ);
             case GROUP_DELETED -> handleGroupDeleted(messagePushMQ);
-            case USER_ONLINE_STATUS -> handleOnlineStatus(messagePushMQ);
             default -> log.warn("未知的 WebSocket 推送类型: {}", messagePushMQ.getPushType());
         }
     }
@@ -87,11 +88,6 @@ public class MessageConsumer {
 
     private void handleGroupDeleted(MessagePushMQ messagePushMQ) {
         webSocketHandler.broadcastGroupDeletedNotification(messagePushMQ.getReceiverIds(), messagePushMQ.getGroupId());
-    }
-
-    private void handleOnlineStatus(MessagePushMQ messagePushMQ) {
-        webSocketHandler.broadcastOnlineStatusChange(
-                messagePushMQ.getReceiverId(), Boolean.TRUE.equals(messagePushMQ.getOnline()));
     }
 
     private void handleError(MessagePushMQ messagePushMQ, Channel channel, long deliveryTag) {
