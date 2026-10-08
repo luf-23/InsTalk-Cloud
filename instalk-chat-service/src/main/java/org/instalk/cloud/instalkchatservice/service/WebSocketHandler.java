@@ -18,12 +18,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 
 @Slf4j
 @Component
 public class WebSocketHandler extends TextWebSocketHandler {
 
-    private static final Map<Long, WebSocketSession> localSessions = new ConcurrentHashMap<>();
+    private static final Map<Long, Set<WebSocketSession>> localSessions = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper;
 
@@ -40,7 +41,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) {
         Long userId = getUserIdFromSession(session);
         if (userId != null) {
-            localSessions.put(userId, session);
+            localSessions.computeIfAbsent(userId, ignored -> ConcurrentHashMap.newKeySet()).add(session);
             wsOnlineRegistry.markOnline(userId);
             log.info("用户 {} 已连接 WebSocket，本实例在线用户数：{}", userId, localSessions.size());
         }
@@ -62,8 +63,14 @@ public class WebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         Long userId = getUserIdFromSession(session);
         if (userId != null) {
-            localSessions.remove(userId);
-            wsOnlineRegistry.markOffline(userId);
+            Set<WebSocketSession> sessions = localSessions.get(userId);
+            if (sessions != null) {
+                sessions.remove(session);
+                if (sessions.isEmpty()) {
+                    localSessions.remove(userId, sessions);
+                    wsOnlineRegistry.markOffline(userId);
+                }
+            }
             log.info("用户 {} 已断开 WebSocket，本实例在线用户数：{}", userId, localSessions.size());
         }
     }
@@ -86,15 +93,19 @@ public class WebSocketHandler extends TextWebSocketHandler {
     }
 
     public void sendMessageToUser(Long userId, MessageVO messageVO) {
-        WebSocketSession session = localSessions.get(userId);
-        if (session != null && session.isOpen()) {
+        Set<WebSocketSession> sessions = localSessions.get(userId);
+        if (sessions != null) {
             try {
                 Map<String, Object> payload = Map.of(
                         "type", "NEW_MESSAGE",
                         "data", messageVO
                 );
                 String json = objectMapper.writeValueAsString(payload);
-                session.sendMessage(new TextMessage(json));
+                for (WebSocketSession session : sessions) {
+                    if (session.isOpen()) {
+                        session.sendMessage(new TextMessage(json));
+                    }
+                }
                 log.debug("发送消息给用户 {}", userId);
             } catch (IOException e) {
                 log.error("发送消息给用户 {} 失败：{}", userId, e.getMessage());
@@ -111,15 +122,19 @@ public class WebSocketHandler extends TextWebSocketHandler {
     }
 
     public void sendMessageRecallNotification(Long userId, Long messageId) {
-        WebSocketSession session = localSessions.get(userId);
-        if (session != null && session.isOpen()) {
+        Set<WebSocketSession> sessions = localSessions.get(userId);
+        if (sessions != null) {
             try {
                 Map<String, Object> payload = Map.of(
                         "type", "MESSAGE_RECALL",
                         "data", Map.of("messageId", messageId)
                 );
                 String json = objectMapper.writeValueAsString(payload);
-                session.sendMessage(new TextMessage(json));
+                for (WebSocketSession session : sessions) {
+                    if (session.isOpen()) {
+                        session.sendMessage(new TextMessage(json));
+                    }
+                }
                 log.debug("发送消息撤回通知给用户 {}，消息ID：{}", userId, messageId);
             } catch (IOException e) {
                 log.error("发送消息撤回通知给用户 {} 失败：{}", userId, e.getMessage());
@@ -134,15 +149,19 @@ public class WebSocketHandler extends TextWebSocketHandler {
     }
 
     public void sendFriendDeletedNotification(Long userId, Long deleterId) {
-        WebSocketSession session = localSessions.get(userId);
-        if (session != null && session.isOpen()) {
+        Set<WebSocketSession> sessions = localSessions.get(userId);
+        if (sessions != null) {
             try {
                 Map<String, Object> payload = Map.of(
                         "type", "FRIEND_DELETED",
                         "data", Map.of("friendId", deleterId)
                 );
                 String json = objectMapper.writeValueAsString(payload);
-                session.sendMessage(new TextMessage(json));
+                for (WebSocketSession session : sessions) {
+                    if (session.isOpen()) {
+                        session.sendMessage(new TextMessage(json));
+                    }
+                }
                 log.info("发送好友删除通知给用户 {}，删除者ID：{}", userId, deleterId);
             } catch (IOException e) {
                 log.error("发送好友删除通知给用户 {} 失败：{}", userId, e.getMessage());
@@ -151,15 +170,19 @@ public class WebSocketHandler extends TextWebSocketHandler {
     }
 
     public void sendGroupDeletedNotification(Long userId, Long groupId) {
-        WebSocketSession session = localSessions.get(userId);
-        if (session != null && session.isOpen()) {
+        Set<WebSocketSession> sessions = localSessions.get(userId);
+        if (sessions != null) {
             try {
                 Map<String, Object> payload = Map.of(
                         "type", "GROUP_DELETED",
                         "data", Map.of("groupId", groupId)
                 );
                 String json = objectMapper.writeValueAsString(payload);
-                session.sendMessage(new TextMessage(json));
+                for (WebSocketSession session : sessions) {
+                    if (session.isOpen()) {
+                        session.sendMessage(new TextMessage(json));
+                    }
+                }
                 log.info("发送群组解散通知给用户 {}，群组ID：{}", userId, groupId);
             } catch (IOException e) {
                 log.error("发送群组解散通知给用户 {} 失败：{}", userId, e.getMessage());
@@ -177,8 +200,8 @@ public class WebSocketHandler extends TextWebSocketHandler {
     }
 
     public boolean hasLocalSession(Long userId) {
-        WebSocketSession session = localSessions.get(userId);
-        return session != null && session.isOpen();
+        Set<WebSocketSession> sessions = localSessions.get(userId);
+        return sessions != null && sessions.stream().anyMatch(WebSocketSession::isOpen);
     }
 
     public boolean isUserOnline(Long userId) {

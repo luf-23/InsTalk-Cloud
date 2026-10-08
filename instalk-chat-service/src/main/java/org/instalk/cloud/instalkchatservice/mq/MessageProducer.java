@@ -66,8 +66,7 @@ public class MessageProducer {
 
     private void publishToUser(MessagePushMQ messagePushMQ) {
         Long userId = messagePushMQ.getReceiverId();
-        String instanceId = wsOnlineRegistry.findInstanceId(userId);
-        if (instanceId != null) {
+        for (String instanceId : wsOnlineRegistry.findInstanceIds(userId)) {
             publishToInstance(instanceId, messagePushMQ);
         }
     }
@@ -75,8 +74,7 @@ public class MessageProducer {
     private void publishToUsers(MessagePushMQ messagePushMQ) {
         Map<String, List<Long>> usersByInstance = new LinkedHashMap<>();
         for (Long userId : messagePushMQ.getReceiverIds()) {
-            String instanceId = wsOnlineRegistry.findInstanceId(userId);
-            if (instanceId != null) {
+            for (String instanceId : wsOnlineRegistry.findInstanceIds(userId)) {
                 usersByInstance.computeIfAbsent(instanceId, key -> new ArrayList<>()).add(userId);
             }
         }

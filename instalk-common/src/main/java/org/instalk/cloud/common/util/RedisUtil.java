@@ -1,6 +1,7 @@
 package org.instalk.cloud.common.util;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public interface RedisUtil {
@@ -30,4 +31,10 @@ public interface RedisUtil {
      * @return 对象实例，不存在返回null
      */
     <T> T getObject(String key, Class<T> clazz);
+
+    void putHashValue(String key, String hashKey, String value, long timeout, TimeUnit unit);
+
+    Map<String, String> getHashValues(String key);
+
+    void removeHashValue(String key, String hashKey);
 }

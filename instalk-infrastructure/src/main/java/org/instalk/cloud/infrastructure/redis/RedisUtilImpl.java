@@ -10,6 +10,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -71,6 +73,25 @@ public class RedisUtilImpl implements RedisUtil {
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Redis缓存对象反序列化失败: " + e.getMessage(), e);
         }
+    }
+
+    @Override
+    public void putHashValue(String key, String hashKey, String value, long timeout, TimeUnit unit) {
+        stringRedisTemplate.opsForHash().put(key, hashKey, value);
+        stringRedisTemplate.expire(key, timeout, unit);
+    }
+
+    @Override
+    public Map<String, String> getHashValues(String key) {
+        Map<Object, Object> values = stringRedisTemplate.opsForHash().entries(key);
+        Map<String, String> result = new HashMap<>();
+        values.forEach((hashKey, value) -> result.put(String.valueOf(hashKey), String.valueOf(value)));
+        return result;
+    }
+
+    @Override
+    public void removeHashValue(String key, String hashKey) {
+        stringRedisTemplate.opsForHash().delete(key, hashKey);
     }
 
 }
