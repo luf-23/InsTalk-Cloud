@@ -19,6 +19,10 @@ import org.instalk.cloud.infrastructure.rabbitmq.RabbitMQConfig;
 @Configuration
 public class MessageRabbitMQConfig {
 
+    private static final long MAIN_QUEUE_MESSAGE_TTL_MS = 10 * 60 * 1000L;
+    private static final long RETRY_QUEUE_TTL_MS = 5 * 1000L;
+    private static final long RETRY_QUEUE_EXPIRE_MS = 30 * 60 * 1000L;
+
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
@@ -40,10 +44,38 @@ public class MessageRabbitMQConfig {
     }
 
     @Bean
+    public DirectExchange wsPushRetryExchange() {
+        return new DirectExchange(RabbitMQConfig.WS_PUSH_RETRY_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public DirectExchange wsPushDeadLetterExchange() {
+        return new DirectExchange(RabbitMQConfig.WS_PUSH_DEAD_LETTER_EXCHANGE, true, false);
+    }
+
+    @Bean
     public Queue messagePushInstanceQueue(InstanceIdProvider instanceIdProvider) {
-        return QueueBuilder.durable("instalk.ws.push." + instanceIdProvider.getInstanceId())
+        return QueueBuilder.durable("instalk.ws.push.v2." + instanceIdProvider.getInstanceId())
+                .ttl((int) MAIN_QUEUE_MESSAGE_TTL_MS)
+                .deadLetterExchange(RabbitMQConfig.WS_PUSH_DEAD_LETTER_EXCHANGE)
+                .deadLetterRoutingKey(RabbitMQConfig.WS_PUSH_DEAD_LETTER_ROUTING_KEY)
                 .autoDelete()
                 .build();
+    }
+
+    @Bean
+    public Queue messagePushRetryQueue(InstanceIdProvider instanceIdProvider) {
+        return QueueBuilder.durable("instalk.ws.push.retry.v2." + instanceIdProvider.getInstanceId())
+                .ttl((int) RETRY_QUEUE_TTL_MS)
+            .expires((int) RETRY_QUEUE_EXPIRE_MS)
+                .deadLetterExchange(RabbitMQConfig.WS_PUSH_INSTANCE_EXCHANGE)
+                .deadLetterRoutingKey(instanceIdProvider.getInstanceId())
+                .build();
+    }
+
+    @Bean
+    public Queue wsPushDeadLetterQueue() {
+        return QueueBuilder.durable(RabbitMQConfig.WS_PUSH_DEAD_LETTER_QUEUE).build();
     }
 
     @Bean
@@ -52,6 +84,21 @@ public class MessageRabbitMQConfig {
                                               @Qualifier("wsPushInstanceExchange") DirectExchange wsPushInstanceExchange) {
         return BindingBuilder.bind(messagePushInstanceQueue).to(wsPushInstanceExchange)
                 .with(instanceIdProvider.getInstanceId());
+    }
+
+    @Bean
+    public Binding messagePushRetryBinding(@Qualifier("messagePushRetryQueue") Queue messagePushRetryQueue,
+                                           InstanceIdProvider instanceIdProvider,
+                                           @Qualifier("wsPushRetryExchange") DirectExchange wsPushRetryExchange) {
+        return BindingBuilder.bind(messagePushRetryQueue).to(wsPushRetryExchange)
+                .with(instanceIdProvider.getInstanceId());
+    }
+
+    @Bean
+    public Binding wsPushDeadLetterBinding(@Qualifier("wsPushDeadLetterQueue") Queue wsPushDeadLetterQueue,
+                                           @Qualifier("wsPushDeadLetterExchange") DirectExchange wsPushDeadLetterExchange) {
+        return BindingBuilder.bind(wsPushDeadLetterQueue).to(wsPushDeadLetterExchange)
+                .with(RabbitMQConfig.WS_PUSH_DEAD_LETTER_ROUTING_KEY);
     }
 
 }

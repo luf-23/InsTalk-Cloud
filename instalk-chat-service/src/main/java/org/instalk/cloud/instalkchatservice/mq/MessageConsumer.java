@@ -3,7 +3,10 @@ package org.instalk.cloud.instalkchatservice.mq;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
 import org.instalk.cloud.common.model.mq.MessagePushMQ;
+import org.instalk.cloud.infrastructure.rabbitmq.RabbitMQConfig;
+import org.instalk.cloud.instalkchatservice.config.InstanceIdProvider;
 import org.instalk.cloud.instalkchatservice.service.WebSocketHandler;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,8 +20,16 @@ import java.io.IOException;
 @Component
 public class MessageConsumer {
 
+    private static final int MAX_RETRY_COUNT = 3;
+
     @Autowired
     private WebSocketHandler webSocketHandler;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
+    @Autowired
+    private InstanceIdProvider instanceIdProvider;
 
     @RabbitListener(queues = "#{messagePushInstanceQueue.name}")
     public void handleMessagePush(MessagePushMQ messagePushMQ, Channel channel,
@@ -93,16 +104,34 @@ public class MessageConsumer {
 
     private void handleError(MessagePushMQ messagePushMQ, Channel channel, long deliveryTag) {
         try {
-            messagePushMQ.setRetryCount(messagePushMQ.getRetryCount() + 1);
-            if (messagePushMQ.getRetryCount() < 3) {
-                channel.basicNack(deliveryTag, false, true);
-                log.warn("WebSocket 推送重试, type={}, 次数: {}", messagePushMQ.getPushType(), messagePushMQ.getRetryCount());
+            int retryCount = messagePushMQ.getRetryCount() == null
+                    ? 1
+                    : messagePushMQ.getRetryCount() + 1;
+            messagePushMQ.setRetryCount(retryCount);
+            if (messagePushMQ.getRetryCount() <= MAX_RETRY_COUNT) {
+                rabbitTemplate.convertAndSend(
+                        RabbitMQConfig.WS_PUSH_RETRY_EXCHANGE,
+                        instanceIdProvider.getInstanceId(),
+                        messagePushMQ);
+                channel.basicAck(deliveryTag, false);
+                log.warn("WebSocket 推送进入延迟重试, type={}, 次数: {}",
+                        messagePushMQ.getPushType(), messagePushMQ.getRetryCount());
             } else {
-                channel.basicNack(deliveryTag, false, false);
-                log.error("WebSocket 推送重试超限, type={}", messagePushMQ.getPushType());
+                rabbitTemplate.convertAndSend(
+                        RabbitMQConfig.WS_PUSH_DEAD_LETTER_EXCHANGE,
+                        RabbitMQConfig.WS_PUSH_DEAD_LETTER_ROUTING_KEY,
+                        messagePushMQ);
+                channel.basicAck(deliveryTag, false);
+                log.error("WebSocket 推送进入死信队列, type={}, 重试次数: {}",
+                        messagePushMQ.getPushType(), messagePushMQ.getRetryCount());
             }
-        } catch (IOException e) {
-            log.error("WebSocket 推送 ACK 处理失败: {}", e.getMessage());
+        } catch (Exception exception) {
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (IOException ackException) {
+                log.error("WebSocket 推送失败后无法确认 RabbitMQ 消息: {}", ackException.getMessage());
+            }
+            log.error("WebSocket 推送转移到重试/死信队列失败", exception);
         }
     }
 }
