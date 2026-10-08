@@ -12,6 +12,7 @@ import org.instalk.cloud.common.model.dto.internal.WsSendPrivateMessageDTO;
 import org.instalk.cloud.common.model.vo.MessageVO;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -34,6 +35,7 @@ public class MessagePushMQ implements Serializable {
         push.setPushType(MessagePushType.PRIVATE_MESSAGE);
         push.setMessageVO(messageMQ.getMessageVO());
         push.setReceiverId(messageMQ.getMessageVO().getReceiverId());
+        push.setReceiverIds(privateMessageReceivers(messageMQ.getMessageVO()));
         push.setRetryCount(messageMQ.getRetryCount());
         return push;
     }
@@ -42,7 +44,7 @@ public class MessagePushMQ implements Serializable {
         MessagePushMQ push = new MessagePushMQ();
         push.setPushType(MessagePushType.GROUP_MESSAGE);
         push.setMessageVO(messageMQ.getMessageVO());
-        push.setReceiverIds(messageMQ.getReceiverIds());
+        push.setReceiverIds(withSender(messageMQ.getReceiverIds(), messageMQ.getMessageVO()));
         push.setRetryCount(messageMQ.getRetryCount());
         return push;
     }
@@ -52,14 +54,31 @@ public class MessagePushMQ implements Serializable {
         push.setPushType(MessagePushType.PRIVATE_MESSAGE);
         push.setMessageVO(dto.getMessageVO());
         push.setReceiverId(dto.getReceiverId());
+        push.setReceiverIds(privateMessageReceivers(dto.getMessageVO()));
         return push;
+    }
+
+    private static List<Long> privateMessageReceivers(MessageVO messageVO) {
+        return withSender(List.of(messageVO.getReceiverId()), messageVO);
+    }
+
+    private static List<Long> withSender(List<Long> originalReceiverIds, MessageVO messageVO) {
+        List<Long> receiverIds = new ArrayList<>();
+        if (originalReceiverIds != null) {
+            receiverIds.addAll(originalReceiverIds);
+        }
+        if (messageVO != null && messageVO.getSenderId() != null
+                && !receiverIds.contains(messageVO.getSenderId())) {
+            receiverIds.add(messageVO.getSenderId());
+        }
+        return receiverIds;
     }
 
     public static MessagePushMQ fromBroadcastMessage(WsBroadcastMessageDTO dto) {
         MessagePushMQ push = new MessagePushMQ();
         push.setPushType(MessagePushType.GROUP_MESSAGE);
         push.setMessageVO(dto.getMessageVO());
-        push.setReceiverIds(dto.getReceiverIds());
+        push.setReceiverIds(withSender(dto.getReceiverIds(), dto.getMessageVO()));
         return push;
     }
 

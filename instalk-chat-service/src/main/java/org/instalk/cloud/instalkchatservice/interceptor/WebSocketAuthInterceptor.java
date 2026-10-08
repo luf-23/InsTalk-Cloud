@@ -11,6 +11,7 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -27,6 +28,10 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
                     Map<String, Object> claims = JwtUtil.parseToken(token);
                     Long userId = ((Number) claims.get("id")).longValue();
                     attributes.put("userId", userId);
+                        String clientId = extractParameter(query, "clientId");
+                        attributes.put("clientId", clientId == null || clientId.isBlank()
+                            ? UUID.randomUUID().toString()
+                            : clientId);
                     log.info("WebSocket 握手成功，用户ID：{}", userId);
                     return true;
                 } catch (Exception e) {
@@ -49,10 +54,15 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
     }
 
     private String extractToken(String query) {
+        return extractParameter(query, "token");
+    }
+
+    private String extractParameter(String query, String parameterName) {
         String[] params = query.split("&");
         for (String param : params) {
-            if (param.startsWith("token=")) {
-                String raw = param.substring(6);
+            String prefix = parameterName + "=";
+            if (param.startsWith(prefix)) {
+                String raw = param.substring(prefix.length());
                 try {
                     return URLDecoder.decode(raw, StandardCharsets.UTF_8);
                 } catch (Exception e) {

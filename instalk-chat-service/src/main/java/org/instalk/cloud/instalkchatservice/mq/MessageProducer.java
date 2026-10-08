@@ -31,8 +31,8 @@ public class MessageProducer {
     private WsOnlineRegistryService wsOnlineRegistry;
 
     public void sendPrivateMessage(MessageMQ messageMQ) {
-        publishToUser(MessagePushMQ.fromPrivateMessage(messageMQ));
-        log.info("私聊 WebSocket 推送已定向投递, 消息ID: {}", messageMQ.getMessageVO().getId());
+        publishToUsers(MessagePushMQ.fromPrivateMessage(messageMQ));
+        log.info("私聊 WebSocket 推送已投递给收发双方, 消息ID: {}", messageMQ.getMessageVO().getId());
     }
 
     public void sendGroupMessage(MessageMQ messageMQ) {
@@ -41,7 +41,7 @@ public class MessageProducer {
     }
 
     public void publishSendPrivateMessage(WsSendPrivateMessageDTO dto) {
-        publishToUser(MessagePushMQ.fromSendPrivateMessage(dto));
+        publishToUsers(MessagePushMQ.fromSendPrivateMessage(dto));
     }
 
     public void publishBroadcastMessage(WsBroadcastMessageDTO dto) {

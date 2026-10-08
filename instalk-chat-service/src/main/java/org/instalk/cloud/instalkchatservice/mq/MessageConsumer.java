@@ -49,10 +49,11 @@ public class MessageConsumer {
     }
 
     private void handlePrivateMessage(MessagePushMQ messagePushMQ) {
-        Long receiverId = messagePushMQ.getReceiverId();
-        if (webSocketHandler.hasLocalSession(receiverId)) {
-            webSocketHandler.sendMessageToUser(receiverId, messagePushMQ.getMessageVO());
-            log.debug("本实例已推送私聊消息给用户 {}, 消息ID: {}", receiverId, messagePushMQ.getMessageVO().getId());
+        for (Long receiverId : messagePushMQ.getReceiverIds()) {
+            if (webSocketHandler.hasLocalSession(receiverId)) {
+                webSocketHandler.sendMessageToUser(receiverId, messagePushMQ.getMessageVO());
+                log.debug("本实例已推送私聊消息给用户 {}, 消息ID: {}", receiverId, messagePushMQ.getMessageVO().getId());
+            }
         }
     }
 
