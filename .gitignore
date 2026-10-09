@@ -23,6 +23,8 @@ target/
 **/src/main/resources/application.properties
 **/src/main/resources/application-*.properties
 **/src/main/resources/infrastructure-mail.yml
+# 提交不含敏感信息的配置模板
+!**/src/main/resources/*.template
 
 # 日志文件
 logs/

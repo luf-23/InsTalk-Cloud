@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://mysql:3306/ins_talk?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:nacos:8848}

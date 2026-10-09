@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: instalk-gateway
+  main:
+    web-application-type: reactive
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        cluster-name: ${NACOS_CLUSTER_NAME:WUHAN}
+        ephemeral: true
+    gateway:
+      routes:
+        - id: user-service
+          predicates:
+            - Path=/user/**
+          uri: lb://instalk-identity-service
+        - id: auth-service
+          predicates:
+            - Path=/auth/**
+          uri: lb://instalk-identity-service
+        - id: chat-message-service
+          predicates:
+            - Path=/message/**
+          uri: lb://instalk-chat-service
+        - id: friendship-service
+          predicates:
+            - Path=/friendship/**
+          uri: lb://instalk-social-service
+        - id: chat-websocket-service
+          predicates:
+            - Path=/ws/**
+          uri: lb:ws://instalk-chat-service
+        - id: group-service
+          predicates:
+            - Path=/group/**
+          uri: lb://instalk-social-service
+        - id: ai-service
+          predicates:
+            - Path=/ai/**
+          uri: lb://instalk-ai-service
+        - id: oss-service
+          predicates:
+            - Path=/oss/**
+          uri: lb://instalk-identity-service
+  config:
+    import:
+      - optional:nacos:${spring.application.name}
+
+gateway:
+  auth:
+    white-list:
+      - /auth/login
+      - /auth/register
+      - /auth/captcha
+      - /auth/refresh
+      - /ws
+
+server:
+  port: ${SERVER_PORT:10010}

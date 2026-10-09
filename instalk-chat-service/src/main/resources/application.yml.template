@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: instalk-chat-service
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ins_talk}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: ${RABBITMQ_VIRTUAL_HOST:/}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        concurrency: 3
+        max-concurrency: 10
+        prefetch: 1
+        auto-declare: true
+    template:
+      retry:
+        enabled: true
+        initial-interval: 1000
+        max-attempts: 3
+        multiplier: 2
+    publisher-confirm-type: correlated
+    publisher-returns: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        cluster-name: ${NACOS_CLUSTER_NAME:WUHAN}
+        ephemeral: true
+  config:
+    import:
+      - optional:nacos:${spring.application.name}
+
+server:
+  port: ${SERVER_PORT:8085}
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true

@@ -1,0 +1,4 @@
+spring:
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:nacos:8848}

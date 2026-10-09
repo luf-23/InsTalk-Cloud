@@ -109,26 +109,40 @@ InsTalk
 └── InsTalk-Frontend
 ```
 
-### 2. Configure Docker Profile
+### 2. Configure Application Profiles
 
-本地开发默认读取各模块的 `application.yml`。
+每个可运行服务的 `src/main/resources` 目录都提供了不含敏感信息的配置模板：
 
-Docker 运行时通过 Compose 激活：
-
-```yaml
-SPRING_PROFILES_ACTIVE: docker
+```text
+<service>/src/main/resources/application.yml.template
+<service>/src/main/resources/application-docker.yml.template
 ```
 
-并读取各模块本地的 `application-docker.yml`，用于覆盖 Docker 环境里的连接地址，例如：
+其中：
 
-```yaml
-spring:
-  cloud:
-    nacos:
-      server-addr: nacos:8848
+- `application.yml` 用于直接在开发机上运行服务；
+- `application-docker.yml` 用于 Docker Compose 网络环境，服务地址使用 Compose service name；
+- `infrastructure-mail.yml.template` 仅用于身份服务的邮件配置。
+
+模板文件不会被 Spring Boot 自动加载。运行服务前，应复制对应模板，并通过环境变量或本地配置文件填写必需的凭据。例如，Windows PowerShell 可执行：
+
+```powershell
+Copy-Item instalk-gateway/src/main/resources/application.yml.template `
+  instalk-gateway/src/main/resources/application.yml
+Copy-Item instalk-gateway/src/main/resources/application-docker.yml.template `
+  instalk-gateway/src/main/resources/application-docker.yml
 ```
 
-`application-docker.yml` 通常包含数据库账号、密码等本地配置，已被 `.gitignore` 忽略，不应提交到仓库。
+其他服务按相同方式初始化。身份服务还需要初始化邮件配置：
+
+```powershell
+Copy-Item instalk-identity-service/src/main/resources/infrastructure-mail.yml.template `
+  instalk-identity-service/src/main/resources/infrastructure-mail.yml
+```
+
+Docker Compose 会为各后端服务设置 `SPRING_PROFILES_ACTIVE=docker`，服务将使用 `application-docker.yml` 覆盖本地配置中的容器地址，例如 Nacos 使用 `nacos:8848` 而不是 `localhost:8848`。
+
+实际配置文件可能包含数据库密码、OSS 密钥、AI API Key 或邮箱授权码，因此已由 `.gitignore` 排除。配置模板不包含真实凭据，可以提交到仓库；复制生成的本地配置文件不应提交。
 
 ### 3. One Command Startup
 
@@ -230,9 +244,9 @@ docker update --restart=no local_postgres local_nacos local_rabbitmq
 restart: on-failure
 ```
 
-## Configuration
+## Configuration Management
 
-建议将真实配置放在环境变量、Nacos 配置中心或 CI/CD Secret 中，避免把数据库密码、OSS Key、AI Key、邮箱授权码提交到仓库。
+敏感配置应通过环境变量、Nacos 配置中心或 CI/CD Secret 管理。不要将数据库密码、OSS 密钥、AI API Key、邮箱授权码等凭据写入 Git 仓库。
 
 Docker 环境内常用服务地址：
 

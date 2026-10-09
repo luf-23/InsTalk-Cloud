@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/instalk}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD}
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:nacos:8848}

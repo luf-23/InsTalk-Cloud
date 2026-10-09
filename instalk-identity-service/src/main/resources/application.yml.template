@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: instalk-identity-service
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ins_talk}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        cluster-name: ${NACOS_CLUSTER_NAME:WUHAN}
+        ephemeral: true
+  config:
+    import:
+      - optional:nacos:${spring.application.name}
+      - optional:classpath:infrastructure-mail.yml
+
+server:
+  port: ${SERVER_PORT:8081}
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+
+aliyun:
+  oss:
+    access-key-id: ${ALIYUN_OSS_ACCESS_KEY_ID}
+    access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET}
+    role-arn: ${ALIYUN_OSS_ROLE_ARN}
+    bucket: ${ALIYUN_OSS_BUCKET}
+    endpoint: ${ALIYUN_OSS_ENDPOINT}
+    region: ${ALIYUN_OSS_REGION}
+    expire-time: ${ALIYUN_OSS_EXPIRE_TIME:900}
+    policy-file: oss-policy.json
